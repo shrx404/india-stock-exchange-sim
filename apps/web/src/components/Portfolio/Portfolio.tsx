@@ -18,10 +18,10 @@ export const Portfolio = ({ positions }: Props) => {
     <div
       style={{
         background: "#0d0d0d",
-        borderTop: "1px solid #1e1e1e",
         padding: "10px 16px",
         overflowY: "auto",
-        maxHeight: 160,
+        height: "100%",
+        boxSizing: "border-box"
       }}
     >
       <div

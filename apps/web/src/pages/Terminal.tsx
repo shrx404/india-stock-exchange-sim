@@ -188,33 +188,34 @@ export const Terminal = () => {
       <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} />
 
       {/* ── Main workspace ──────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", gap: 1 }}>
-        {/* Left column: order book */}
-        <div
-          style={{
-            width: 260,
-            flexShrink: 0,
-            borderRight: "1px solid #1a1a1a",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <OrderBook scrip={activeScrip} snapshot={activeSnapshot} />
-        </div>
-
-        {/* Center: chart + order form */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        {/* Left/Center column: chart */}
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
+            borderRight: "1px solid #1a1a1a"
           }}
         >
-          {/* Chart fills available vertical space */}
           <CandleChart scrip={activeScrip} candleEvents={candleEvents} />
+        </div>
 
+        {/* Right column: order book + order form */}
+        <div
+          style={{
+            width: 320,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            background: "#0a0a0a"
+          }}
+        >
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <OrderBook scrip={activeScrip} snapshot={activeSnapshot} />
+          </div>
           <div
             style={{
               flexShrink: 0,
@@ -228,15 +229,23 @@ export const Terminal = () => {
             />
           </div>
         </div>
+      </div>
 
+      {/* ── Footer Block ──────────────────────────── */}
+      <div style={{ height: 200, flexShrink: 0, display: "flex", borderTop: "1px solid #1a1a1a", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <Portfolio positions={positions} />
+        </div>
+        
         {/* Right column: trade log */}
         <div
           style={{
-            width: 240,
+            width: 400,
             flexShrink: 0,
             borderLeft: "1px solid #1a1a1a",
             overflowY: "auto",
             padding: "10px 12px",
+            background: "#0a0a0a",
             display: "flex",
             flexDirection: "column",
             gap: 0,
@@ -264,15 +273,19 @@ export const Terminal = () => {
                   padding: "5px 0",
                   borderBottom: "1px solid #111",
                   fontSize: 11,
+                  display: "flex",
+                  justifyContent: "space-between",
                 }}
               >
-                <span style={{ color: "#555", fontSize: 9, marginRight: 4 }}>
-                  {t.scrip}
-                </span>
-                <span style={{ color: "#3ddc84" }}>
-                  {t.quantity} @ ₹{t.price.toFixed(2)}
-                </span>
-                <div style={{ color: "#333", fontSize: 9, marginTop: 1 }}>
+                <div>
+                  <span style={{ color: "#555", fontSize: 10, marginRight: 8, fontWeight: 600 }}>
+                    {t.scrip}
+                  </span>
+                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : t.seller_id === TRADER_ID ? "#f05050" : "#888" }}>
+                    {t.quantity} @ ₹{t.price.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: "#444", fontSize: 10, marginTop: 1, fontFamily: "monospace" }}>
                   {t.buyer_id.replace("bot_", "")} ←{" "}
                   {t.seller_id.replace("bot_", "")}
                 </div>
@@ -281,9 +294,6 @@ export const Terminal = () => {
           )}
         </div>
       </div>
-
-      {/* ── Portfolio bar at bottom ──────────────────────────── */}
-      <Portfolio positions={positions} />
     </div>
   );
 };

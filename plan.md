@@ -78,53 +78,106 @@
   - [x] Implement a cron-like timer in FastAPI to serialize the top 5 levels of the OrderBook for all scrips every 30 seconds.
   - [x] Write an async bulk-insert operation to persist these snapshots without blocking the matching engine.
 
-### Phase 3 — Data & Seeding
+### Phase 3 — UI/UX Overhaul & Grid Re-architecture
 
-- **3.1 Real NSE Historical Prices**
-  - [ ] Write a standalone script to download and parse NSE Bhavcopy CSVs.
-  - [ ] Create a seeding utility to populate the `price_history` database table with this reference data.
-  - [ ] Update the engine's initialization sequence to load these base prices to set the starting point for agents.
+**Senior UI Designer's Preamble:** The current interface has a disjointed user journey. Key components are floating, blocking data, and large segments of screen real estate (especially on the right and bottom) are dead space. We need a modern, professional trading-terminal layout based on a unified grid system. We will re-establish a Master-Detail relationship for component interaction.
 
-- **3.2 Expand to NIFTY 50**
-  - [ ] Create a `scrip_metadata` JSON or config file defining all 50 scrips, their sector, correct lot sizes, and tick sizes.
-  - [ ] Update the `Order` model and `OrderForm` validation to strictly enforce lot size and tick size increments.
-  - [ ] Scale up the simulation agents to monitor and trade across all 50 order books.
+**Design Principles:**
 
-- **3.3 Corporate Action Handling**
-  - [ ] Create a database table for `corporate_actions` (Ex-date, type: split/bonus/dividend, ratio/amount).
-  - [ ] Write a utility function to apply a mathematical adjustment factor to historical data and reference prices when an ex-date is crossed.
+1. Eliminate Floating Widgets: All components are fixed and docked. The Order Form must not block data.
+2. Unified Information Hierarchy: Clear visual distinction from Market View (generic) to Specific View (selected stock).
+3. Maximum Screen Utilization: A fixed footer uses the dead space below the portfolio. Expanding chart/tools to use the full width.
 
-### Phase 4 — Frontend Polish (Lowest Priority)
+**Visual Layout Proposal:**
 
-- **4.1 Chart Indicators**
-  - [x] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
-  - [x] Add a histogram series at the bottom of the chart pane for Volume bars.
-  - [x] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
+```text
++-------------------------------------------------+
+|               A. Header / Market Watch          |
++-------------------------------------------------+
+|                       | B. Market Depth (TOP5)  |
+|                       | (Docked Right)          |
+|    D. Main Chart      +-------------------------+
+| (Selected Stock View) | C. Order Form           |
+|                       | (Docked Right)          |
+|                       | (Logic: View depth, then|
+|                       | place order)            |
++-----------------------+-------------------------+
+| E. Portfolio/Holdings | F. Trade Log            |
+| (Docked Bottom-Left)  | (Docked Bottom-Right)   |
++-------------------------------------------------+
+```
 
-- **4.2 Order History Table**
-  - [ ] Create a REST endpoint `/api/users/orders` to fetch historical orders with pagination.
-  - [ ] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
-  - [ ] Calculate and display per-trade P&L based on average fill price vs current LTP.
+**Actionable Tasks:**
 
-- **4.3 Market Depth Replay**
-  - [ ] Build a timeline scrubber/slider UI component.
-  - [ ] Create a REST endpoint `/api/depth/snapshot?timestamp=X` to fetch specific historical states.
-  - [ ] Wire the UI to disconnect the live WebSocket and render the fetched historical depth data when scrubbing.
+**3.1 Grid System & Component Re-Architecture**
 
-- **4.4 Simulation Speed Control**
-  - [ ] Implement a global `SIM_SPEED_MULTIPLIER` in the engine.
-  - [ ] Link the multiplier to agent `sleep()` or `delay()` functions (e.g., 10x speed divides delays by 10).
-  - [ ] Add a 1x/5x/10x toggle UI on the frontend that triggers an admin REST endpoint to adjust the multiplier.
+- [x] Implement a 2 or 3-column responsive grid layout system.
+- [x] Re-engineer the floating C. Order Form into a fixed, docked widget on the right side of the screen, logical proximity to the B. Market Depth.
+- [x] Move and expand E. Portfolio and F. Trade Log side-by-side as a unified footer block, utilizing the large dead space at the bottom right.
 
-- **4.5 Session Summary**
-  - [ ] Write an aggregation query/endpoint to calculate EOD stats (total volume, biggest gainer/loser).
-  - [ ] Build an End-of-Day modal summary screen that displays global market stats and the user's realized/unrealized P&L.
+**3.2 Component Densification & Redesign**
+
+- [ ] Refactor A. Header into a compact, data-dense ticker bar, removing redundant stock names and optimizing label positions.
+- [ ] New Feature Priority: Master Scrip View. Redesign the D. Main Chart wrapper (TradingView LWC) to default to a clean whole stock price history view. Personal holding entry prices are represented as distinct, labeled horizontal price lines on the Y-axis. This ensures the user sees the stock's overall value, with positions simply overlaid as key reference points.
+- [ ] Redesign B. Market Depth (Order Book) into a compact table with improved typography. Integrate a visual gradient on the quantity column for immediate liquidity assessment.
+- [ ] Optimize typography in F. Trade Log, clustering recent trades by type and potentially adding filtering options.
 
 ---
 
-## North Star
+### Phase 4 — Data & Seeding
 
-A standalone Indian equity market simulation that is indistinguishable
-from a real NSE trading day — realistic price discovery, genuine
-order flow from diverse agent personalities, correct market microstructure,
-and a clean trading terminal to interact with it.
+**4.1 Real NSE Historical Prices**
+
+- [ ] Write a standalone script to download and parse NSE Bhavcopy CSVs.
+- [ ] Create a seeding utility to populate the price_history database table with this reference data.
+- [ ] Update the engine's initialization sequence to load these base prices to set the starting point for agents.
+
+**4.2 Expand to NIFTY 50**
+
+- [ ] Create a scrip_metadata JSON or config file defining all 50 scrips, their sector, correct lot sizes, and tick sizes.
+- [ ] Update the Order model and OrderForm validation to strictly enforce lot size and tick size increments.
+- [ ] Scale up the simulation agents to monitor and trade across all 50 order books.
+
+**4.3 Corporate Action Handling**
+
+- [ ] Create a database table for corporate_actions (Ex-date, type: split/bonus/dividend, ratio/amount).
+- [ ] Write a utility function to apply a mathematical adjustment factor to historical data and reference prices when an ex-date is crossed.
+
+---
+
+### Phase 5 — Frontend Polish (Lowest Priority)
+
+**5.1 Chart Indicators**
+
+- [x] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
+- [x] Add a histogram series at the bottom of the chart pane for Volume bars.
+- [x] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
+
+**5.2 Order History Table**
+
+- [ ] Create a REST endpoint /api/users/orders to fetch historical orders with pagination.
+- [ ] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
+- [ ] Calculate and display per-trade P&L based on average fill price vs current LTP.
+
+**5.3 Market Depth Replay**
+
+- [ ] Build a timeline scrubber/slider UI component.
+- [ ] Create a REST endpoint /api/depth/snapshot?timestamp=X to fetch specific historical states.
+- [ ] Wire the UI to disconnect the live WebSocket and render the fetched historical depth data when scrubbing.
+
+**5.4 Simulation Speed Control**
+
+- [ ] Implement a global SIM_SPEED_MULTIPLIER in the engine.
+- [ ] Link the multiplier to agent sleep() or delay() functions (e.g., 10x speed divides delays by 10).
+- [ ] Add a 1x/5x/10x toggle UI on the frontend that triggers an admin REST endpoint to adjust the multiplier.
+
+**5.5 Session Summary**
+
+- [ ] Write an aggregation query/endpoint to calculate EOD stats (total volume, biggest gainer/loser).
+- [ ] Build an End-of-Day modal summary screen that displays global market stats and the user's realized/unrealized P&L.
+
+---
+
+### North Star
+
+A standalone Indian equity market simulation that is indistinguishable from a real NSE trading day — realistic price discovery, genuine order flow from diverse agent personalities, correct market microstructure, and a clean trading terminal to interact with it.
