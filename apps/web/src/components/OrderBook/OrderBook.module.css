@@ -1,0 +1,62 @@
+.container {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  width: 320px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #2a2a2a;
+  background: #111;
+}
+
+.scrip  { font-weight: 700; font-size: 14px; color: #fff; }
+.ltp    { font-size: 16px; font-weight: 700; color: #f0c040; }
+
+.labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 6px 14px;
+  color: #555;
+  font-size: 11px;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.asks, .bids { display: flex; flex-direction: column; }
+
+.spread {
+  text-align: center;
+  padding: 5px;
+  font-size: 11px;
+  color: #555;
+  border-top: 1px solid #1e1e1e;
+  border-bottom: 1px solid #1e1e1e;
+  background: #131313;
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 5px 14px;
+  font-size: 12px;
+}
+
+.bar {
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  pointer-events: none;
+}
+
+.ask .price { color: #f05050; }
+.ask .bar   { background: #f05050; }
+.bid .price { color: #3ddc84; }
+.bid .bar   { background: #3ddc84; }
+
+.qty, .orders { color: #aaa; text-align: right; }
+.empty { padding: 10px 14px; color: #444; font-size: 11px; }
