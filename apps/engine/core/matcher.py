@@ -5,6 +5,9 @@ from .trade import Trade
 
 from .trade_store import TradeStore
 
+from simulation.price_feed import SEED_PRICES
+from .market_session import SessionState
+
 class Matcher:
     """
     Exchange-level matcher.
@@ -17,8 +20,32 @@ class Matcher:
 
     def get_or_create_book(self, scrip: str) -> OrderBook:
         if scrip not in self._books:
-            self._books[scrip] = OrderBook(scrip)
+            prev_close = SEED_PRICES.get(scrip, 100.0)
+            self._books[scrip] = OrderBook(scrip, prev_close=prev_close)
         return self._books[scrip]
+
+    def set_pre_open(self, scrip: str) -> bool:
+        book = self.get_or_create_book(scrip)
+        book.session_state = SessionState.PRE_OPEN
+        return True
+
+    def halt_market(self, scrip: str) -> bool:
+        book = self.get_or_create_book(scrip)
+        book.session_state = SessionState.HALTED
+        return True
+
+    def open_market(self, scrip: str) -> list[Trade]:
+        book = self.get_or_create_book(scrip)
+        if book.session_state == SessionState.PRE_OPEN:
+            # Execute call auction to transition to OPEN
+            trades = book.execute_call_auction()
+            if self.trade_store:
+                for t in trades:
+                    self.trade_store.add_trade(t)
+            return trades
+        
+        book.session_state = SessionState.OPEN
+        return []
 
     def place_order(self, order: Order) -> list[Trade]:
         book = self.get_or_create_book(order.scrip)

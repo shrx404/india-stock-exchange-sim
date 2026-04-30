@@ -13,6 +13,8 @@ export interface OrderBookSnapshot {
   ltp: number | null;
   bids: OrderBookLevel[];
   asks: OrderBookLevel[];
+  session_state?: string;
+  prev_close?: number;
   event?: string;
 }
 
@@ -45,6 +47,7 @@ export interface MarketWatchItem {
   seed: number;
   change: number;
   changePct: number;
+  session_state?: string;
 }
 
 export interface PortfolioPosition {

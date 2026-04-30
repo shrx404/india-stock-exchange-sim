@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import Optional
 from .order import Order, Side, OrderType, OrderStatus
 from .trade import Trade
+from .market_session import SessionState
 
 
 class OrderBook:
@@ -13,20 +14,37 @@ class OrderBook:
     Each heap entry: (price, timestamp, order_id)  ← price-time priority
     """
 
-    def __init__(self, scrip: str):
+    def __init__(self, scrip: str, prev_close: float = 0.0):
         self.scrip   = scrip
         self._bids   = []   # max-heap: [(-price, timestamp, order_id)]
         self._asks   = []   # min-heap: [(price,  timestamp, order_id)]
         self._orders : dict[str, Order] = {}   # order_id → Order
         self._ltp    : Optional[float] = None  # last traded price
         self._trades : list[Trade] = []        # trade log
+        
+        self.session_state: SessionState = SessionState.OPEN
+        self.prev_close: float = prev_close
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def add_order(self, order: Order) -> list[Trade]:
+        if self.session_state == SessionState.HALTED:
+            raise ValueError(f"Trading is HALTED for {self.scrip}.")
+            
+        if order.order_type == OrderType.LIMIT and self.prev_close > 0:
+            # Check circuit limits (±20%)
+            upper_limit = self.prev_close * 1.20
+            lower_limit = self.prev_close * 0.80
+            if order.price > upper_limit or order.price < lower_limit:
+                raise ValueError(f"Order price {order.price} is outside circuit limits (±20% of {self.prev_close}).")
+
         self._orders[order.order_id] = order
+        
+        if self.session_state == SessionState.PRE_OPEN:
+            self._push_to_book(order)
+            return []
 
         if order.order_type == OrderType.MARKET:
             return self._match_market(order)
@@ -64,7 +82,72 @@ class OrderBook:
             "ltp"  : self._ltp,
             "bids" : bids,
             "asks" : asks,
+            "session_state": self.session_state.value,
+            "prev_close": self.prev_close
         }
+
+    def calculate_equilibrium_price(self) -> Optional[float]:
+        bids = self._aggregate_side(self._bids, is_bid=True, levels=10000)
+        asks = self._aggregate_side(self._asks, is_bid=False, levels=10000)
+        
+        if not bids or not asks:
+            return None
+            
+        prices = sorted(list(set([b["price"] for b in bids] + [a["price"] for a in asks])))
+        
+        max_vol = 0
+        best_price = None
+        
+        for p in prices:
+            demand = sum(b["quantity"] for b in bids if b["price"] >= p)
+            supply = sum(a["quantity"] for a in asks if a["price"] <= p)
+            tradable_vol = min(demand, supply)
+            
+            if tradable_vol > max_vol:
+                max_vol = tradable_vol
+                best_price = p
+                
+        return best_price if max_vol > 0 else None
+
+    def execute_call_auction(self) -> list[Trade]:
+        ep = self.calculate_equilibrium_price()
+        if not ep:
+            self.session_state = SessionState.OPEN
+            return []
+            
+        trades = []
+        eligible_bids = []
+        for neg_p, ts, oid in self._bids:
+            order = self._orders.get(oid)
+            if order and order.is_active and (order.order_type == OrderType.MARKET or -neg_p >= ep):
+                eligible_bids.append(order)
+                
+        eligible_asks = []
+        for p, ts, oid in self._asks:
+            order = self._orders.get(oid)
+            if order and order.is_active and (order.order_type == OrderType.MARKET or p <= ep):
+                eligible_asks.append(order)
+                
+        eligible_bids.sort(key=lambda x: (0 if x.order_type == OrderType.MARKET else 1, -x.price, x.timestamp))
+        eligible_asks.sort(key=lambda x: (0 if x.order_type == OrderType.MARKET else 1, x.price, x.timestamp))
+        
+        b_idx, a_idx = 0, 0
+        while b_idx < len(eligible_bids) and a_idx < len(eligible_asks):
+            b = eligible_bids[b_idx]
+            a = eligible_asks[a_idx]
+            
+            if not b.is_active:
+                b_idx += 1; continue
+            if not a.is_active:
+                a_idx += 1; continue
+                
+            trade = self._execute(b, a, ep)
+            if trade:
+                trades.append(trade)
+                
+        self.session_state = SessionState.OPEN
+        return trades
+
 
     # ------------------------------------------------------------------
     # Internal matching
@@ -150,6 +233,13 @@ class OrderBook:
         sell.status = OrderStatus.FILLED if sell.pending_qty == 0 else OrderStatus.PARTIAL
 
         self._ltp = price
+        
+        # Check circuit limits after trade
+        if self.prev_close > 0:
+            upper_limit = self.prev_close * 1.20
+            lower_limit = self.prev_close * 0.80
+            if price >= upper_limit or price <= lower_limit:
+                self.session_state = SessionState.HALTED
 
         trade = Trade(
             scrip      = self.scrip,

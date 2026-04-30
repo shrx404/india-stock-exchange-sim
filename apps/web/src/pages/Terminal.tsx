@@ -215,7 +215,6 @@ export const Terminal = () => {
           {/* Chart fills available vertical space */}
           <CandleChart scrip={activeScrip} candleEvents={candleEvents} />
 
-          {/* Order form below chart */}
           <div
             style={{
               flexShrink: 0,
@@ -224,6 +223,7 @@ export const Terminal = () => {
           >
             <OrderForm
               scrip={activeScrip}
+              sessionState={activeSnapshot?.session_state || "OPEN"}
               onTraded={(res, side) => handleTraded(res, activeScrip, side)}
             />
           </div>

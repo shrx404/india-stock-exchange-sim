@@ -120,6 +120,9 @@ class CancelOrderRequest(BaseModel):
     scrip:    str
     order_id: str
 
+class SessionStateRequest(BaseModel):
+    state: str
+
 
 # ------------------------------------------------------------------
 # REST routes
@@ -143,7 +146,10 @@ async def place_order(req: PlaceOrderRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    trades = matcher.place_order(order)
+    try:
+        trades = matcher.place_order(order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Persist to DB (best-effort; skip if DB not available)
     try:
@@ -247,8 +253,60 @@ def market_watch():
             "seed"     : seed,
             "change"   : round(ltp - seed, 2) if ltp else 0,
             "changePct": round((ltp - seed) / seed * 100, 2) if ltp else 0.0,
+            "session_state": matcher.get_depth(scrip)["session_state"]
         })
     return result
+
+@app.post("/admin/session/{scrip}")
+async def set_session_state(scrip: str, req: SessionStateRequest):
+    state = req.state.upper()
+    if state == "PRE_OPEN":
+        matcher.set_pre_open(scrip.upper())
+    elif state == "HALTED":
+        matcher.halt_market(scrip.upper())
+    elif state == "OPEN":
+        trades = matcher.open_market(scrip.upper())
+        try:
+            async with get_session() as session:
+                for t in trades:
+                    session.add(TradeRecord(
+                        trade_id   = t.trade_id,
+                        scrip      = t.scrip,
+                        buy_order  = t.buy_order,
+                        sell_order = t.sell_order,
+                        price      = t.price,
+                        quantity   = t.quantity,
+                    ))
+                    await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
+        except Exception as e:
+            print(f"[DB] Call auction trades persist error: {e}")
+            
+        depth = matcher.get_depth(scrip.upper())
+        await broadcast({**depth, "event": "depth"})
+        for t in trades:
+            await broadcast({
+                "event"    : "trade",
+                "scrip"    : t.scrip,
+                "price"    : t.price,
+                "quantity" : t.quantity,
+                "buyer_id" : t.buyer_id,
+                "seller_id": t.seller_id,
+                "trade_id" : t.trade_id,
+            })
+            vwap = analytics.get_vwap(t.scrip)
+            if vwap is not None:
+                await broadcast({
+                    "event": "vwap",
+                    "scrip": t.scrip,
+                    "vwap": round(vwap, 2)
+                })
+        return {"status": "OPEN", "trades_executed": len(trades)}
+    else:
+        raise HTTPException(status_code=400, detail="Invalid state")
+        
+    depth = matcher.get_depth(scrip.upper())
+    await broadcast({**depth, "event": "depth"})
+    return {"status": state}
 
 
 @app.get("/candles/{scrip}")

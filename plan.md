@@ -62,16 +62,16 @@
   - [x] Expose live VWAP via REST/WebSocket for the Mean Reversion agents and frontend charting.
 
 - **2.3 Circuit Breakers**
-  - [ ] Store the previous day's closing price for each scrip in the database/memory.
-  - [ ] Implement a pre-trade check in the Matcher to verify if an incoming order breaches the ±20% threshold.
-  - [ ] Create a `MarketHalt` state in the engine that pauses trading for a specific scrip (or globally) and rejects/queues new orders.
-  - [ ] Broadcast circuit breaker status via WebSocket to show a "HALTED" badge on the frontend.
+  - [x] Store the previous day's closing price for each scrip in the database/memory.
+  - [x] Implement a pre-trade check in the Matcher to verify if an incoming order breaches the ±20% threshold.
+  - [x] Create a `MarketHalt` state in the engine that pauses trading for a specific scrip (or globally) and rejects/queues new orders.
+  - [x] Broadcast circuit breaker status via WebSocket to show a "HALTED" badge on the frontend.
 
 - **2.4 Pre-Open Call Auction**
-  - [ ] Implement a `MarketSession` state machine (e.g., `PRE_OPEN`, `OPEN`, `CLOSED`).
-  - [ ] Modify the OrderBook to accept orders without matching them when in `PRE_OPEN` state.
-  - [ ] Write the equilibrium price discovery algorithm (find the price point that maximizes executable volume).
-  - [ ] Implement the mass execution logic: match all eligible orders at the exact equilibrium price, then transition state to `OPEN`.
+  - [x] Implement a `MarketSession` state machine (e.g., `PRE_OPEN`, `OPEN`, `CLOSED`).
+  - [x] Modify the OrderBook to accept orders without matching them when in `PRE_OPEN` state.
+  - [x] Write the equilibrium price discovery algorithm (find the price point that maximizes executable volume).
+  - [x] Implement the mass execution logic: match all eligible orders at the exact equilibrium price, then transition state to `OPEN`.
 
 - **2.5 Market Depth History**
   - [ ] Create a `MarketDepthSnapshot` database table.

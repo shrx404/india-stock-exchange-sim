@@ -57,8 +57,10 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
               transition   : 'all 0.15s',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2, color: isActive ? '#f0c040' : '#888' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2, color: isActive ? '#f0c040' : '#888', display: 'flex', alignItems: 'center', gap: 6 }}>
               {item.scrip}
+              {item.session_state === 'HALTED' && <span style={{ fontSize: 9, padding: '2px 4px', background: '#f05050', color: 'white', borderRadius: 2 }}>HALTED</span>}
+              {item.session_state === 'PRE_OPEN' && <span style={{ fontSize: 9, padding: '2px 4px', background: '#3080c0', color: 'white', borderRadius: 2 }}>PRE-OPEN</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
               <span style={{ fontSize: 12, color: ltpColor }}>

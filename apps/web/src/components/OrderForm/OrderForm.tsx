@@ -4,10 +4,11 @@ import styles from './OrderForm.module.css';
 
 interface Props {
   scrip: string;
+  sessionState?: string;
   onTraded: (res: PlaceOrderResponse, side: Side) => void;
 }
 
-export function OrderForm({ scrip, onTraded }: Props) {
+export function OrderForm({ scrip, sessionState = 'OPEN', onTraded }: Props) {
   const [side, setSide]           = useState<Side>('BUY');
   const [orderType, setOrderType] = useState<OrderType>('LIMIT');
   const [quantity, setQuantity]   = useState('');
@@ -101,9 +102,10 @@ export function OrderForm({ scrip, onTraded }: Props) {
       <button
         className={`${styles.submit} ${side === 'BUY' ? styles.submitBuy : styles.submitSell}`}
         onClick={handleSubmit}
-        disabled={loading}
+        disabled={loading || sessionState === 'HALTED'}
+        style={{ opacity: sessionState === 'HALTED' ? 0.5 : 1, cursor: sessionState === 'HALTED' ? 'not-allowed' : 'pointer' }}
       >
-        {loading ? 'Placing...' : `${side} ${scrip}`}
+        {sessionState === 'HALTED' ? 'MARKET HALTED' : loading ? 'Placing...' : `${side} ${scrip}`}
       </button>
     </div>
   );
