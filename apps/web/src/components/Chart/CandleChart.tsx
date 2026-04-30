@@ -2,9 +2,13 @@ import { useEffect, useRef } from 'react';
 import {
   createChart,
   CandlestickSeries,
+  LineSeries,
+  HistogramSeries,
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
+  type LineData,
+  type HistogramData,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { CandleBar, WsCandleEvent } from '../../types/exchange';
@@ -16,10 +20,38 @@ interface Props {
 
 const API = 'http://localhost:8000';
 
+function calculateEMA(data: CandleBar[], period: number): LineData[] {
+  const k = 2 / (period + 1);
+  const emaData: LineData[] = [];
+  let ema: number | undefined = undefined;
+  
+  for (const bar of data) {
+    if (ema === undefined) {
+      ema = bar.close;
+    } else {
+      ema = bar.close * k + ema * (1 - k);
+    }
+    emaData.push({
+      time: (new Date(bar.time).getTime() / 1000) as UTCTimestamp,
+      value: ema,
+    });
+  }
+  return emaData;
+}
+
 export const CandleChart = ({ scrip, candleEvents }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
+  
+  // Series refs
   const seriesRef    = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const vwapRef      = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema9Ref      = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema21Ref     = useRef<ISeriesApi<'Line'> | null>(null);
+
+  // Cumulative session data for live VWAP updates
+  const sessionVwapState = useRef({ cumVol: 0, cumPriceVol: 0 });
 
   // Create chart once
   useEffect(() => {
@@ -52,9 +84,38 @@ export const CandleChart = ({ scrip, candleEvents }: Props) => {
       wickUpColor   : '#3ddc84',
       wickDownColor : '#f05050',
     });
+    
+    const volSeries = chart.addSeries(HistogramSeries, {
+      color: '#26a69a',
+      priceFormat: { type: 'volume' },
+      priceScaleId: '', // Overlay on chart
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    const vwapSeries = chart.addSeries(LineSeries, {
+      color: '#f0c040',
+      lineWidth: 2,
+      crosshairMarkerVisible: false,
+    });
+
+    const ema9Series = chart.addSeries(LineSeries, {
+      color: '#2962FF',
+      lineWidth: 1,
+      crosshairMarkerVisible: false,
+    });
+
+    const ema21Series = chart.addSeries(LineSeries, {
+      color: '#FF6D00',
+      lineWidth: 1,
+      crosshairMarkerVisible: false,
+    });
 
     chartRef.current  = chart;
     seriesRef.current = series;
+    volSeriesRef.current = volSeries;
+    vwapRef.current = vwapSeries;
+    ema9Ref.current = ema9Series;
+    ema21Ref.current = ema21Series;
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current) {
@@ -79,15 +140,42 @@ export const CandleChart = ({ scrip, candleEvents }: Props) => {
         const data: CandleBar[] = await res.json();
         if (!Array.isArray(data) || data.length === 0) return;
 
-        const bars: CandlestickData[] = data.map(c => ({
-          time : (new Date(c.time).getTime() / 1000) as UTCTimestamp,
-          open : c.open,
-          high : c.high,
-          low  : c.low,
-          close: c.close,
-        }));
+        const bars: CandlestickData[] = [];
+        const vols: HistogramData[] = [];
+        const vwaps: LineData[] = [];
+        
+        let cumVol = 0;
+        let cumPriceVol = 0;
+
+        data.forEach(c => {
+          const time = (new Date(c.time).getTime() / 1000) as UTCTimestamp;
+          
+          bars.push({ time, open: c.open, high: c.high, low: c.low, close: c.close });
+          
+          vols.push({
+            time,
+            value: c.volume,
+            color: c.close >= c.open ? 'rgba(61, 220, 132, 0.4)' : 'rgba(240, 80, 80, 0.4)'
+          });
+
+          // Session VWAP approximation
+          cumVol += c.volume;
+          cumPriceVol += ((c.high + c.low + c.close) / 3) * c.volume;
+          vwaps.push({
+            time,
+            value: cumVol > 0 ? cumPriceVol / cumVol : c.close
+          });
+        });
+
+        // Store cumulative values for real-time updates
+        sessionVwapState.current = { cumVol, cumPriceVol };
 
         seriesRef.current?.setData(bars);
+        volSeriesRef.current?.setData(vols);
+        vwapRef.current?.setData(vwaps);
+        ema9Ref.current?.setData(calculateEMA(data, 9));
+        ema21Ref.current?.setData(calculateEMA(data, 21));
+
         chartRef.current?.timeScale().fitContent();
       } catch {
         // no candles yet — ignore
@@ -107,13 +195,36 @@ export const CandleChart = ({ scrip, candleEvents }: Props) => {
     const latestEvent = candleEvents.find(e => e.scrip === scrip);
     if (latestEvent) {
       const c = latestEvent.candle;
+      const time = (new Date(c.time).getTime() / 1000) as UTCTimestamp;
+      
       seriesRef.current.update({
-        time : (new Date(c.time).getTime() / 1000) as UTCTimestamp,
+        time,
         open : c.open,
         high : c.high,
         low  : c.low,
         close: c.close,
       });
+
+      volSeriesRef.current?.update({
+        time,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(61, 220, 132, 0.4)' : 'rgba(240, 80, 80, 0.4)'
+      });
+      
+      // Calculate real-time VWAP update (approximate without storing full tick history)
+      const { cumVol, cumPriceVol } = sessionVwapState.current;
+      const newCumVol = cumVol + c.volume;
+      const newCumPriceVol = cumPriceVol + (((c.high + c.low + c.close) / 3) * c.volume);
+      const vwapValue = newCumVol > 0 ? newCumPriceVol / newCumVol : c.close;
+      
+      vwapRef.current?.update({
+        time,
+        value: vwapValue
+      });
+      
+      // Note: Updating real-time EMA requires the previous EMA value, which Lightweight Charts
+      // does not easily expose. Since we poll /candles every 5 seconds, the EMAs will refresh
+      // frequently enough. Real-time updates for EMA are skipped here to avoid maintaining complex state.
     }
   }, [candleEvents, scrip]);
 

@@ -97,9 +97,9 @@
 ### Phase 4 — Frontend Polish (Lowest Priority)
 
 - **4.1 Chart Indicators**
-  - [ ] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
-  - [ ] Add a histogram series at the bottom of the chart pane for Volume bars.
-  - [ ] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
+  - [x] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
+  - [x] Add a histogram series at the bottom of the chart pane for Volume bars.
+  - [x] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
 
 - **4.2 Order History Table**
   - [ ] Create a REST endpoint `/api/users/orders` to fetch historical orders with pagination.
