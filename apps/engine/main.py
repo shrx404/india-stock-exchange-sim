@@ -186,6 +186,13 @@ async def place_order(req: PlaceOrderRequest):
             "trade_id" : t.trade_id,
         })
         await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
+        vwap = analytics.get_vwap(t.scrip)
+        if vwap is not None:
+            await broadcast({
+                "event": "vwap",
+                "scrip": t.scrip,
+                "vwap": round(vwap, 2)
+            })
 
     return {
         "order_id": order.order_id,
@@ -219,6 +226,11 @@ def get_depth(scrip: str, levels: int = 5):
 @app.get("/ltp/{scrip}")
 def get_ltp(scrip: str):
     return {"scrip": scrip.upper(), "ltp": matcher.get_ltp(scrip.upper())}
+
+
+@app.get("/vwap/{scrip}")
+def get_vwap(scrip: str):
+    return {"scrip": scrip.upper(), "vwap": analytics.get_vwap(scrip.upper())}
 
 
 @app.get("/market-watch")

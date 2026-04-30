@@ -10,9 +10,5 @@ class Analytics:
         self._trade_store = trade_store
 
     def get_vwap(self, scrip: str, limit: int = 100) -> Optional[float]:
-        trades = self._trade_store.get_recent_trades(scrip, limit)
-        if not trades:
-            return None
-        total_vol = sum(t.quantity for t in trades)
-        total_val = sum(t.price * t.quantity for t in trades)
-        return total_val / total_vol if total_vol > 0 else None
+        # Ignore limit since we now use a session-long running VWAP
+        return self._trade_store.get_vwap(scrip)

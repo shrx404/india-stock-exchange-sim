@@ -136,7 +136,7 @@ india-exchange-sim/
 ## 🛤️ Roadmap
 
 - [x] **Phase 1:** Core Matching Engine & Basic Agents (MM, Retail, Momentum).
-- [/] **Phase 2:** Market Structure Realism (OHLCV Candles [x], VWAP, Circuit Breakers, Pre-open Auction).
+- [/] **Phase 2:** Market Structure Realism (OHLCV Candles [x], VWAP [x], Circuit Breakers, Pre-open Auction).
 - [ ] **Phase 3:** Real NSE Data Seeding (Bhavcopy CSVs) & Corporate Actions.
 - [ ] **Phase 4:** Advanced Frontend (Market Depth Replay, Session Summaries).
 

@@ -57,9 +57,9 @@
   - [x] Add a WebSocket topic (`candles.{scrip}`) to broadcast live candle updates to the frontend chart.
 
 - **2.2 VWAP Calculation**
-  - [ ] Add running variables for `cumulative_typical_price_volume` and `cumulative_volume` per scrip to the `TradeStore`.
-  - [ ] Update VWAP calculation on every executed trade.
-  - [ ] Expose live VWAP via REST/WebSocket for the Mean Reversion agents and frontend charting.
+  - [x] Add running variables for `cumulative_typical_price_volume` and `cumulative_volume` per scrip to the `TradeStore`.
+  - [x] Update VWAP calculation on every executed trade.
+  - [x] Expose live VWAP via REST/WebSocket for the Mean Reversion agents and frontend charting.
 
 - **2.3 Circuit Breakers**
   - [ ] Store the previous day's closing price for each scrip in the database/memory.
