@@ -89,7 +89,13 @@ export const CandleChart = ({ scrip, candleEvents }: Props) => {
       color: '#26a69a',
       priceFormat: { type: 'volume' },
       priceScaleId: '', // Overlay on chart
-      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    chart.priceScale('').applyOptions({
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
     });
 
     const vwapSeries = chart.addSeries(LineSeries, {
