@@ -52,9 +52,9 @@
 ### Phase 2 — Market Structure Realism
 
 - **2.1 OHLCV Candle Builder**
-  - [ ] Create an in-memory `CandleAggregator` to bucket real-time trades into 1-minute intervals (Open, High, Low, Close, Volume).
-  - [ ] Implement an async background task to persist completed 1-min candles to the `price_history` Postgres table.
-  - [ ] Add a WebSocket topic (`candles.{scrip}`) to broadcast live candle updates to the frontend chart.
+  - [x] Create an in-memory `CandleAggregator` to bucket real-time trades into 1-minute intervals (Open, High, Low, Close, Volume).
+  - [x] Implement an async background task to persist completed 1-min candles to the `price_history` Postgres table.
+  - [x] Add a WebSocket topic (`candles.{scrip}`) to broadcast live candle updates to the frontend chart.
 
 - **2.2 VWAP Calculation**
   - [ ] Add running variables for `cumulative_typical_price_volume` and `cumulative_volume` per scrip to the `TradeStore`.

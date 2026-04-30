@@ -70,4 +70,10 @@ export interface WsDepthEvent extends OrderBookSnapshot {
   event: "depth";
 }
 
-export type WsMessage = WsTradeEvent | WsDepthEvent;
+export interface WsCandleEvent {
+  event: "candle";
+  scrip: string;
+  candle: CandleBar;
+}
+
+export type WsMessage = WsTradeEvent | WsDepthEvent | WsCandleEvent;

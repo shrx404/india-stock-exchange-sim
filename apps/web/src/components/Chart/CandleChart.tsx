@@ -7,15 +7,16 @@ import {
   type CandlestickData,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { CandleBar } from '../../types/exchange';
+import type { CandleBar, WsCandleEvent } from '../../types/exchange';
 
 interface Props {
   scrip: string;
+  candleEvents: WsCandleEvent[];
 }
 
 const API = 'http://localhost:8000';
 
-export const CandleChart = ({ scrip }: Props) => {
+export const CandleChart = ({ scrip, candleEvents }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
   const seriesRef    = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -97,6 +98,24 @@ export const CandleChart = ({ scrip }: Props) => {
     const id = setInterval(fetchCandles, 5_000);
     return () => clearInterval(id);
   }, [scrip]);
+
+  // Apply real-time candle updates
+  useEffect(() => {
+    if (!seriesRef.current || candleEvents.length === 0) return;
+    
+    // We only care about the latest candle event for the active scrip
+    const latestEvent = candleEvents.find(e => e.scrip === scrip);
+    if (latestEvent) {
+      const c = latestEvent.candle;
+      seriesRef.current.update({
+        time : (new Date(c.time).getTime() / 1000) as UTCTimestamp,
+        open : c.open,
+        high : c.high,
+        low  : c.low,
+        close: c.close,
+      });
+    }
+  }, [candleEvents, scrip]);
 
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>

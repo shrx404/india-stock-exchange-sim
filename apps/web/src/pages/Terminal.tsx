@@ -87,7 +87,7 @@ export const Terminal = () => {
   const [activeScrip, setActiveScrip] = useState("RELIANCE");
   const [fills, setFills] = useState<FillEntry[]>([]);
 
-  const { snapshots, tradeEvents, connected } = useWebSocket();
+  const { snapshots, tradeEvents, candleEvents, connected } = useWebSocket();
 
   // Build trade log from WS trade events (bot + human trades)
   const log: WsTradeEvent[] = tradeEvents.slice(0, 40);
@@ -213,7 +213,7 @@ export const Terminal = () => {
           }}
         >
           {/* Chart fills available vertical space */}
-          <CandleChart scrip={activeScrip} />
+          <CandleChart scrip={activeScrip} candleEvents={candleEvents} />
 
           {/* Order form below chart */}
           <div

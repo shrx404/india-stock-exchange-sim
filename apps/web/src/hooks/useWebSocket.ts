@@ -7,12 +7,14 @@ const MAX_BACKOFF_MS = 10_000;
 export interface UseWebSocketReturn {
   snapshots: Record<string, OrderBookSnapshot>;
   tradeEvents: WsTradeEvent[];
+  candleEvents: WsCandleEvent[];
   connected: boolean;
 }
 
 export const useWebSocket = (): UseWebSocketReturn => {
   const [snapshots, setSnapshots]     = useState<Record<string, OrderBookSnapshot>>({});
   const [tradeEvents, setTradeEvents] = useState<WsTradeEvent[]>([]);
+  const [candleEvents, setCandleEvents] = useState<WsCandleEvent[]>([]);
   const [connected, setConnected]     = useState(false);
 
   const wsRef      = useRef<WebSocket | null>(null);
@@ -34,17 +36,23 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
     socket.onmessage = (e) => {
       try {
-        const data = JSON.parse(e.data as string);
+        const data = JSON.parse(e.data as string) as WsMessage;
 
         if (data.event === 'trade') {
-          setTradeEvents(prev => [data as WsTradeEvent, ...prev].slice(0, 100));
+          setTradeEvents(prev => [data, ...prev].slice(0, 100));
+          return;
+        }
+        
+        if (data.event === 'candle') {
+          setCandleEvents(prev => [data, ...prev].slice(0, 100));
           return;
         }
 
-        // depth snapshot
-        const snap = data as OrderBookSnapshot;
-        if (snap.scrip) {
-          setSnapshots(prev => ({ ...prev, [snap.scrip]: snap }));
+        if (data.event === 'depth') {
+          // depth snapshot
+          if (data.scrip) {
+            setSnapshots(prev => ({ ...prev, [data.scrip]: data }));
+          }
         }
       } catch {
         console.error('[WS] parse error', e.data);
@@ -73,5 +81,5 @@ export const useWebSocket = (): UseWebSocketReturn => {
     };
   }, [connect]);
 
-  return { snapshots, tradeEvents, connected };
+  return { snapshots, tradeEvents, candleEvents, connected };
 };

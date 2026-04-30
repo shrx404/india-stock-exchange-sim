@@ -15,6 +15,7 @@ from db.models import OrderRecord, TradeRecord
 
 from core.trade_store import TradeStore
 from core.analytics import Analytics
+from core.candle_aggregator import CandleAggregator
 
 # ------------------------------------------------------------------
 # State
@@ -25,9 +26,8 @@ matcher: Matcher = Matcher(trade_store)
 clients: list[WebSocket] = []
 
 # In-memory candle accumulator per scrip (for chart endpoint)
-# Structure: { scrip: { candle_time_str: {open,high,low,close,volume} } }
-_candles: dict[str, dict] = {}
-
+# and broadcasting to the frontend
+candle_aggregator = CandleAggregator()
 
 # ------------------------------------------------------------------
 # Broadcast helper
@@ -43,20 +43,8 @@ async def broadcast(data: dict):
     for ws in dead:
         clients.remove(ws)
 
-
-def _update_candle(scrip: str, price: float, qty: int):
-    """Accumulate 1-minute OHLCV candles in memory."""
-    import datetime
-    now  = datetime.datetime.utcnow()
-    key  = now.strftime("%Y-%m-%dT%H:%M:00")
-    book = _candles.setdefault(scrip, {})
-    if key not in book:
-        book[key] = {"time": key, "open": price, "high": price, "low": price, "close": price, "volume": 0}
-    c = book[key]
-    c["high"]   = max(c["high"],  price)
-    c["low"]    = min(c["low"],   price)
-    c["close"]  = price
-    c["volume"] += qty
+# Wire broadcast to aggregator
+candle_aggregator._broadcast_fn = broadcast
 
 
 # ------------------------------------------------------------------
@@ -93,8 +81,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(momentum.run(), name="momentum_bot"),
         asyncio.create_task(reversion.run(), name="reversion_bot"),
         asyncio.create_task(env_bot.run(), name="env_bot"),
+        asyncio.create_task(candle_aggregator.run(interval=10), name="candle_aggregator"),
     ]
-    print("[Bots] market maker + retail + momentum + reversion + environment bots started")
+    print("[Bots] market maker + retail + momentum + reversion + environment bots started, candle aggregator started")
 
     yield  # ← app is running
 
@@ -179,7 +168,7 @@ async def place_order(req: PlaceOrderRequest):
                     price      = t.price,
                     quantity   = t.quantity,
                 ))
-                _update_candle(t.scrip, t.price, t.quantity)
+                await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
     except Exception as db_err:
         print(f"[DB write skip] {db_err}")
 
@@ -196,7 +185,7 @@ async def place_order(req: PlaceOrderRequest):
             "seller_id": t.seller_id,
             "trade_id" : t.trade_id,
         })
-        _update_candle(t.scrip, t.price, t.quantity)
+        await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
 
     return {
         "order_id": order.order_id,
@@ -253,8 +242,7 @@ def market_watch():
 @app.get("/candles/{scrip}")
 def get_candles(scrip: str):
     """Return sorted 1-min OHLCV candles for a scrip (in-memory)."""
-    book = _candles.get(scrip.upper(), {})
-    return sorted(book.values(), key=lambda c: c["time"])
+    return candle_aggregator.get_candles(scrip)
 
 
 @app.get("/trades/{scrip}")
