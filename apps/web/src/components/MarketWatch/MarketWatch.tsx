@@ -32,8 +32,8 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
       gap           : 0,
       overflowX     : 'auto',
       borderBottom  : '1px solid #1e1e1e',
-      background    : '#0a0a0a',
-      padding       : '0 8px',
+      background    : '#050505',
+      padding       : '0 4px',
     }}>
       {items.map(item => {
         const isActive  = item.scrip === activeScrip;
@@ -46,10 +46,10 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
             key={item.scrip}
             onClick={() => onSelect(item.scrip)}
             style={{
-              background   : isActive ? '#151515' : 'transparent',
+              background   : 'transparent',
               border       : 'none',
               borderBottom : isActive ? '2px solid #f0c040' : '2px solid transparent',
-              padding      : '10px 16px',
+              padding      : '6px 12px',
               cursor       : 'pointer',
               color        : isActive ? '#e0e0e0' : '#666',
               textAlign    : 'left',
@@ -57,10 +57,10 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
               transition   : 'all 0.15s',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2, color: isActive ? '#f0c040' : '#888', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 2, color: isActive ? '#f0c040' : '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
               {item.scrip}
-              {item.session_state === 'HALTED' && <span style={{ fontSize: 9, padding: '2px 4px', background: '#f05050', color: 'white', borderRadius: 2 }}>HALTED</span>}
-              {item.session_state === 'PRE_OPEN' && <span style={{ fontSize: 9, padding: '2px 4px', background: '#3080c0', color: 'white', borderRadius: 2 }}>PRE-OPEN</span>}
+              {item.session_state === 'HALTED' && <span style={{ fontSize: 8, padding: '1px 3px', background: '#f05050', color: 'white', borderRadius: 2 }}>HALTED</span>}
+              {item.session_state === 'PRE_OPEN' && <span style={{ fontSize: 8, padding: '1px 3px', background: '#3080c0', color: 'white', borderRadius: 2 }}>PRE-OPEN</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
               <span style={{ fontSize: 12, color: ltpColor }}>

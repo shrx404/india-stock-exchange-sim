@@ -85,7 +85,7 @@ function BookRow({
   const pct = (level.quantity / maxQty) * 100;
   return (
     <div className={`${styles.row} ${styles[side]}`}>
-      <div className={styles.bar} style={{ width: `${pct}%`, opacity: 0.15 }} />
+      <div className={styles.bar} style={{ width: `${pct}%` }} />
       <span className={styles.price}>₹{level.price.toFixed(2)}</span>
       <span className={styles.qty}>{level.quantity}</span>
       <span className={styles.orders}>{level.orders}</span>

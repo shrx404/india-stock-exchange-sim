@@ -10,12 +10,14 @@ import {
   type LineData,
   type HistogramData,
   type UTCTimestamp,
+  type IPriceLine,
 } from 'lightweight-charts';
-import type { CandleBar, WsCandleEvent } from '../../types/exchange';
+import type { CandleBar, WsCandleEvent, PortfolioPosition } from '../../types/exchange';
 
 interface Props {
   scrip: string;
   candleEvents: WsCandleEvent[];
+  position?: PortfolioPosition;
 }
 
 const API = 'http://localhost:8000';
@@ -39,7 +41,7 @@ function calculateEMA(data: CandleBar[], period: number): LineData[] {
   return emaData;
 }
 
-export const CandleChart = ({ scrip, candleEvents }: Props) => {
+export const CandleChart = ({ scrip, candleEvents, position }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
   
@@ -49,9 +51,33 @@ export const CandleChart = ({ scrip, candleEvents }: Props) => {
   const vwapRef      = useRef<ISeriesApi<'Line'> | null>(null);
   const ema9Ref      = useRef<ISeriesApi<'Line'> | null>(null);
   const ema21Ref     = useRef<ISeriesApi<'Line'> | null>(null);
+  const priceLineRef = useRef<IPriceLine | null>(null);
 
   // Cumulative session data for live VWAP updates
   const sessionVwapState = useRef({ cumVol: 0, cumPriceVol: 0 });
+
+  // Handle position price line
+  useEffect(() => {
+    if (!seriesRef.current) return;
+    
+    // Remove existing
+    if (priceLineRef.current) {
+      seriesRef.current.removePriceLine(priceLineRef.current);
+      priceLineRef.current = null;
+    }
+
+    if (position && position.netQty !== 0) {
+      const isLong = position.netQty > 0;
+      priceLineRef.current = seriesRef.current.createPriceLine({
+        price: position.avgPrice,
+        color: isLong ? '#3ddc84' : '#f05050',
+        lineWidth: 2,
+        lineStyle: 2, // Dashed
+        axisLabelVisible: true,
+        title: `Avg: ₹${position.avgPrice.toFixed(2)}`,
+      });
+    }
+  }, [position]);
 
   // Create chart once
   useEffect(() => {

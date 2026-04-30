@@ -117,10 +117,10 @@
 
 **3.2 Component Densification & Redesign**
 
-- [ ] Refactor A. Header into a compact, data-dense ticker bar, removing redundant stock names and optimizing label positions.
-- [ ] New Feature Priority: Master Scrip View. Redesign the D. Main Chart wrapper (TradingView LWC) to default to a clean whole stock price history view. Personal holding entry prices are represented as distinct, labeled horizontal price lines on the Y-axis. This ensures the user sees the stock's overall value, with positions simply overlaid as key reference points.
-- [ ] Redesign B. Market Depth (Order Book) into a compact table with improved typography. Integrate a visual gradient on the quantity column for immediate liquidity assessment.
-- [ ] Optimize typography in F. Trade Log, clustering recent trades by type and potentially adding filtering options.
+- [x] Refactor A. Header into a compact, data-dense ticker bar, removing redundant stock names and optimizing label positions.
+- [x] New Feature Priority: Master Scrip View. Redesign the D. Main Chart wrapper (TradingView LWC) to default to a clean whole stock price history view. Personal holding entry prices are represented as distinct, labeled horizontal price lines on the Y-axis. This ensures the user sees the stock's overall value, with positions simply overlaid as key reference points.
+- [x] Redesign B. Market Depth (Order Book) into a compact table with improved typography. Integrate a visual gradient on the quantity column for immediate liquidity assessment.
+- [x] Optimize typography in F. Trade Log, clustering recent trades by type and potentially adding filtering options.
 
 ---
 

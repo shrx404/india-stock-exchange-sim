@@ -199,7 +199,11 @@ export const Terminal = () => {
             borderRight: "1px solid #1a1a1a"
           }}
         >
-          <CandleChart scrip={activeScrip} candleEvents={candleEvents} />
+          <CandleChart 
+            scrip={activeScrip} 
+            candleEvents={candleEvents} 
+            position={positions.find(p => p.scrip === activeScrip)} 
+          />
         </div>
 
         {/* Right column: order book + order form */}
@@ -270,24 +274,29 @@ export const Terminal = () => {
               <div
                 key={i}
                 style={{
-                  padding: "5px 0",
+                  padding: "3px 0",
                   borderBottom: "1px solid #111",
-                  fontSize: 11,
                   display: "flex",
                   justifyContent: "space-between",
+                  alignItems: "center"
                 }}
               >
                 <div>
                   <span style={{ color: "#555", fontSize: 10, marginRight: 8, fontWeight: 600 }}>
                     {t.scrip}
                   </span>
-                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : t.seller_id === TRADER_ID ? "#f05050" : "#888" }}>
+                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : t.seller_id === TRADER_ID ? "#f05050" : "#888", fontFamily: "monospace", fontSize: 11 }}>
                     {t.quantity} @ ₹{t.price.toFixed(2)}
                   </span>
                 </div>
-                <div style={{ color: "#444", fontSize: 10, marginTop: 1, fontFamily: "monospace" }}>
-                  {t.buyer_id.replace("bot_", "")} ←{" "}
-                  {t.seller_id.replace("bot_", "")}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : "#444", fontSize: 9, fontFamily: "monospace" }}>
+                    {t.buyer_id.replace("bot_", "")}
+                  </span>
+                  <span style={{ color: "#333", fontSize: 8 }}>←</span>
+                  <span style={{ color: t.seller_id === TRADER_ID ? "#f05050" : "#444", fontSize: 9, fontFamily: "monospace" }}>
+                    {t.seller_id.replace("bot_", "")}
+                  </span>
                 </div>
               </div>
             ))
