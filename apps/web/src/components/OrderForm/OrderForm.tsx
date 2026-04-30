@@ -4,7 +4,7 @@ import styles from './OrderForm.module.css';
 
 interface Props {
   scrip: string;
-  onTraded: (res: PlaceOrderResponse) => void;
+  onTraded: (res: PlaceOrderResponse, side: Side) => void;
 }
 
 export function OrderForm({ scrip, onTraded }: Props) {
@@ -38,7 +38,7 @@ export function OrderForm({ scrip, onTraded }: Props) {
         }),
       });
       const data: PlaceOrderResponse = await res.json();
-      onTraded(data);
+      onTraded(data, side);
       setQuantity('');
       setPrice('');
     } catch {

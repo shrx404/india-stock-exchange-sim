@@ -1,38 +1,77 @@
-import { useEffect, useRef, useState } from 'react';
-import type { OrderBookSnapshot } from '../types/exchange';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import type { OrderBookSnapshot, WsTradeEvent } from '../types/exchange';
 
 const WS_URL = 'ws://localhost:8000/ws';
+const MAX_BACKOFF_MS = 10_000;
 
-export function useWebSocket() {
-  const [snapshot, setSnapshot] = useState<OrderBookSnapshot | null>(null);
-  const [connected, setConnected] = useState(false);
-  const ws = useRef<WebSocket | null>(null);
+export interface UseWebSocketReturn {
+  snapshots: Record<string, OrderBookSnapshot>;
+  tradeEvents: WsTradeEvent[];
+  connected: boolean;
+}
 
-  useEffect(() => {
+export const useWebSocket = (): UseWebSocketReturn => {
+  const [snapshots, setSnapshots]     = useState<Record<string, OrderBookSnapshot>>({});
+  const [tradeEvents, setTradeEvents] = useState<WsTradeEvent[]>([]);
+  const [connected, setConnected]     = useState(false);
+
+  const wsRef      = useRef<WebSocket | null>(null);
+  const backoffRef = useRef(500);
+  const mountedRef = useRef(true);
+
+  const connect = useCallback(() => {
+    if (!mountedRef.current) return;
+
     const socket = new WebSocket(WS_URL);
-    ws.current = socket;
+    wsRef.current = socket;
 
     socket.onopen = () => {
+      if (!mountedRef.current) return;
       setConnected(true);
-      console.log('WS connected');
+      backoffRef.current = 500;
+      console.log('[WS] connected');
     };
 
     socket.onmessage = (e) => {
       try {
-        const data: OrderBookSnapshot = JSON.parse(e.data);
-        setSnapshot(data);
+        const data = JSON.parse(e.data as string);
+
+        if (data.event === 'trade') {
+          setTradeEvents(prev => [data as WsTradeEvent, ...prev].slice(0, 100));
+          return;
+        }
+
+        // depth snapshot
+        const snap = data as OrderBookSnapshot;
+        if (snap.scrip) {
+          setSnapshots(prev => ({ ...prev, [snap.scrip]: snap }));
+        }
       } catch {
-        console.error('WS parse error', e.data);
+        console.error('[WS] parse error', e.data);
       }
     };
 
     socket.onclose = () => {
+      if (!mountedRef.current) return;
       setConnected(false);
-      console.log('WS disconnected');
+      console.log(`[WS] disconnected — reconnecting in ${backoffRef.current}ms`);
+      setTimeout(() => {
+        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
+        connect();
+      }, backoffRef.current);
     };
 
-    return () => socket.close();
+    socket.onerror = () => socket.close();
   }, []);
 
-  return { snapshot, connected };
-}
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
+    return () => {
+      mountedRef.current = false;
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  return { snapshots, tradeEvents, connected };
+};
