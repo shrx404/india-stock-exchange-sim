@@ -7,7 +7,7 @@ so the engine service can write without a separate migration tool.
 from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, DateTime, Integer, Numeric,
-    String, ForeignKey, text,
+    String, ForeignKey, text, JSON
 )
 from sqlalchemy.orm import DeclarativeBase
 
@@ -82,3 +82,13 @@ class PriceHistoryRecord(Base):
     close       = Column(Numeric(10, 2))
     volume      = Column(Integer, default=0)
     candle_time = Column(DateTime(timezone=True), nullable=False)
+
+
+class MarketDepthSnapshotRecord(Base):
+    __tablename__ = "market_depth_snapshots"
+
+    id            = Column(Integer, primary_key=True)
+    scrip         = Column(String(20), ForeignKey("scrips.symbol"), nullable=False)
+    snapshot_time = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    bids          = Column(JSON, nullable=False)
+    asks          = Column(JSON, nullable=False)

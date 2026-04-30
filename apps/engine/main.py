@@ -47,6 +47,37 @@ async def broadcast(data: dict):
 candle_aggregator._broadcast_fn = broadcast
 
 
+async def record_market_depth_task(interval: float = 30.0):
+    """Periodically snapshots top 5 levels of the order book to DB."""
+    await asyncio.sleep(5.0)  # Wait for startup
+    while True:
+        try:
+            snapshots = []
+            for scrip in matcher.active_scrips:
+                depth = matcher.get_depth(scrip, levels=5)
+                # Only save if there's actually something in the book
+                if depth["bids"] or depth["asks"]:
+                    snapshots.append({
+                        "scrip": scrip,
+                        "bids": depth["bids"],
+                        "asks": depth["asks"]
+                    })
+            
+            if snapshots:
+                from db.models import MarketDepthSnapshotRecord
+                async with get_session() as session:
+                    for s in snapshots:
+                        session.add(MarketDepthSnapshotRecord(
+                            scrip=s["scrip"],
+                            bids=s["bids"],
+                            asks=s["asks"]
+                        ))
+                    await session.commit()
+        except Exception as e:
+            print(f"[DepthRecorder] Error saving snapshot: {e}")
+            
+        await asyncio.sleep(interval)
+
 # ------------------------------------------------------------------
 # Lifespan — startup / shutdown
 # ------------------------------------------------------------------
@@ -82,6 +113,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(reversion.run(), name="reversion_bot"),
         asyncio.create_task(env_bot.run(), name="env_bot"),
         asyncio.create_task(candle_aggregator.run(interval=10), name="candle_aggregator"),
+        asyncio.create_task(record_market_depth_task(30.0), name="depth_recorder"),
     ]
     print("[Bots] market maker + retail + momentum + reversion + environment bots started, candle aggregator started")
 

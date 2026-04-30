@@ -74,9 +74,9 @@
   - [x] Implement the mass execution logic: match all eligible orders at the exact equilibrium price, then transition state to `OPEN`.
 
 - **2.5 Market Depth History**
-  - [ ] Create a `MarketDepthSnapshot` database table.
-  - [ ] Implement a cron-like timer in FastAPI to serialize the top 5 levels of the OrderBook for all scrips every 30 seconds.
-  - [ ] Write an async bulk-insert operation to persist these snapshots without blocking the matching engine.
+  - [x] Create a `MarketDepthSnapshot` database table.
+  - [x] Implement a cron-like timer in FastAPI to serialize the top 5 levels of the OrderBook for all scrips every 30 seconds.
+  - [x] Write an async bulk-insert operation to persist these snapshots without blocking the matching engine.
 
 ### Phase 3 — Data & Seeding
 

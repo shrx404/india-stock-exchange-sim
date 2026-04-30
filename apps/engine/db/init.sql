@@ -63,6 +63,15 @@ CREATE TABLE IF NOT EXISTS price_history (
     UNIQUE(scrip, candle_time)
 );
 
+-- Market depth history snapshots
+CREATE TABLE IF NOT EXISTS market_depth_snapshots (
+    id          SERIAL PRIMARY KEY,
+    scrip       VARCHAR(20) NOT NULL REFERENCES scrips(symbol),
+    snapshot_time TIMESTAMPTZ DEFAULT NOW(),
+    bids        JSONB NOT NULL,
+    asks        JSONB NOT NULL
+);
+
 -- Seed: NIFTY 50 top 10 scrips for MVP
 INSERT INTO scrips (symbol, name) VALUES
     ('RELIANCE',  'Reliance Industries Ltd'),
