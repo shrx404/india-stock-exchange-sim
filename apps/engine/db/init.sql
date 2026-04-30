@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS traders (
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (
     id            SERIAL PRIMARY KEY,
-    order_id      UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    order_id      VARCHAR(36) UNIQUE NOT NULL,
     scrip         VARCHAR(20) NOT NULL REFERENCES scrips(symbol),
     trader_id     VARCHAR(50) NOT NULL REFERENCES traders(trader_id),
     side          VARCHAR(4) NOT NULL CHECK (side IN ('BUY', 'SELL')),
@@ -41,10 +41,10 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Trades (every matched order pair)
 CREATE TABLE IF NOT EXISTS trades (
     id         SERIAL PRIMARY KEY,
-    trade_id   UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+    trade_id   VARCHAR(36) UNIQUE NOT NULL,
     scrip      VARCHAR(20) NOT NULL REFERENCES scrips(symbol),
-    buy_order  UUID NOT NULL REFERENCES orders(order_id),
-    sell_order UUID NOT NULL REFERENCES orders(order_id),
+    buy_order  VARCHAR(36) NOT NULL REFERENCES orders(order_id),
+    sell_order VARCHAR(36) NOT NULL REFERENCES orders(order_id),
     price      NUMERIC(10, 2) NOT NULL,
     quantity   INTEGER NOT NULL,
     traded_at  TIMESTAMPTZ DEFAULT NOW()

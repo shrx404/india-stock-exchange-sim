@@ -8,15 +8,20 @@ import json
 
 from core.order import Order, Side, OrderType
 from core.matcher import Matcher
-from simulation.agents import MarketMakerBot, RetailBot
+from simulation.agents import MarketMakerBot, RetailBot, AgentConfig, MomentumBot, MeanReversionBot, EnvironmentBot
 from db.session import init_db, get_session
 from db.models import OrderRecord, TradeRecord
 
 
+from core.trade_store import TradeStore
+from core.analytics import Analytics
+
 # ------------------------------------------------------------------
 # State
 # ------------------------------------------------------------------
-matcher: Matcher = Matcher()
+trade_store: TradeStore = TradeStore()
+analytics: Analytics = Analytics(trade_store)
+matcher: Matcher = Matcher(trade_store)
 clients: list[WebSocket] = []
 
 # In-memory candle accumulator per scrip (for chart endpoint)
@@ -67,16 +72,34 @@ async def lifespan(app: FastAPI):
         print(f"[DB] skipped (no DB?): {e}")
 
     # 2. Start simulation bots
-    mm     = MarketMakerBot(matcher, broadcast, interval=4.0)
-    retail = RetailBot(matcher, broadcast, interval=2.5)
-    t1 = asyncio.create_task(mm.run(),     name="market_maker")
-    t2 = asyncio.create_task(retail.run(), name="retail_bot")
-    print("[Bots] market maker + retail bot started")
+    mm_config = AgentConfig(capital=10_000_000.0, aggression=0.5, reaction_delay=0.0)
+    mm = MarketMakerBot(agent_id="bot_mm_01", matcher=matcher, broadcast_fn=broadcast, config=mm_config, interval=4.0)
+    
+    retail_config = AgentConfig(capital=100_000.0, aggression=0.8, reaction_delay=0.5)
+    retail = RetailBot(agent_id="bot_retail_01", matcher=matcher, broadcast_fn=broadcast, config=retail_config, interval=2.5)
+
+    momentum_config = AgentConfig(capital=500_000.0, aggression=0.7, reaction_delay=0.2)
+    momentum = MomentumBot(agent_id="bot_momentum_01", matcher=matcher, broadcast_fn=broadcast, config=momentum_config, trade_store=trade_store, interval=2.0)
+
+    reversion_config = AgentConfig(capital=2_000_000.0, aggression=0.6, reaction_delay=0.3)
+    reversion = MeanReversionBot(agent_id="bot_reversion_01", matcher=matcher, broadcast_fn=broadcast, config=reversion_config, analytics=analytics, interval=3.0)
+
+    env_config = AgentConfig(capital=100_000_000.0, aggression=1.0)
+    env_bot = EnvironmentBot(agent_id="bot_environment", matcher=matcher, broadcast_fn=broadcast, config=env_config, interval=5.0)
+
+    tasks = [
+        asyncio.create_task(mm.run(), name="market_maker"),
+        asyncio.create_task(retail.run(), name="retail_bot"),
+        asyncio.create_task(momentum.run(), name="momentum_bot"),
+        asyncio.create_task(reversion.run(), name="reversion_bot"),
+        asyncio.create_task(env_bot.run(), name="env_bot"),
+    ]
+    print("[Bots] market maker + retail + momentum + reversion + environment bots started")
 
     yield  # ← app is running
 
-    t1.cancel()
-    t2.cancel()
+    for t in tasks:
+        t.cancel()
 
 
 # ------------------------------------------------------------------

@@ -1,86 +1,151 @@
-# India Exchange Sim
+# 🇮🇳 India Exchange Sim
 
-A full-stack, high-performance mock trading exchange designed to simulate an Indian stock market environment (e.g., NSE). This project provides a real-time order matching engine, persistent trade storage, and a feature-rich React frontend with live market data, interactive candlestick charts, and portfolio tracking.
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-## Features
+A high-performance, full-stack trading exchange simulator tailored for the Indian equity market (NSE). This project features a sub-millisecond matching engine, realistic agent-based market simulation, and a premium trading terminal.
 
-*   **Matching Engine:** Written in Python (FastAPI). Implements a Central Limit Order Book (CLOB) with price-time priority matching.
-*   **Live Market Simulation:** Includes background market maker bots that provide continuous liquidity (bid/ask ladders) and retail bots that generate random order flow.
-*   **Real-time Updates:** Order book snapshots and trade events are broadcast to the frontend via WebSockets.
-*   **Database Persistence:** Asynchronous SQLAlchemy ORM writes trades and order history to PostgreSQL.
-*   **Frontend Terminal:** A modern, dark-themed trading terminal built with React and Vite.
-    *   **Market Watch:** Live LTP and percentage change for active scrips.
-    *   **Interactive Charting:** Real-time 1-minute candlestick charts powered by TradingView Lightweight Charts.
-    *   **Order Book Depth:** Visual representation of market depth (bids and asks).
-    *   **Portfolio Tracking:** Automatic calculation of net positions and P&L based on trade fills.
+---
 
-## Project Structure
+## ✨ Key Features
 
-This is a monorepo containing two main applications:
+### ⚡ High-Performance Matching Engine
 
-*   `apps/engine/`: The Python FastAPI matching engine and simulation environment.
-*   `apps/web/`: The React (Vite) frontend application.
+- **CLOB Architecture:** Central Limit Order Book with price-time priority.
+- **NSE Microstructure:** Supports **Disclosed Quantity (Iceberg)** orders, Market/Limit types, and tick-level precision.
+- **Asynchronous Core:** Built with FastAPI and `asyncio` for non-blocking order routing and broadcasts.
 
-## Prerequisites
+### 🤖 Advanced Market Simulation
 
-*   Docker and Docker Compose
-*   Node.js 20+ (for running the frontend locally without Docker, though a Docker option is provided)
-*   Python 3.12+ (for running the engine locally without Docker)
+- **Market Makers:** Maintain liquidity with dynamic bid/ask ladders and volatility-adjusted spreads.
+- **Retail Bots:** Simulate organic "noise" with random aggression and reaction delays.
+- **Momentum Agents:** Trend-following bots that capitalize on price breakouts.
+- **Mean Reversionists:** Intelligent agents tracking VWAP to identify and trade price over-extensions.
+- **Macro Dynamics:** Panic/Greed cascades and correlated sector-based movements (e.g., IT, Banking).
 
-## Quick Start (Docker Compose)
+### 📊 Premium Trading Terminal
 
-The easiest way to run the entire stack (Database, Engine, and Frontend) is using Docker Compose:
+- **Real-time Charts:** 1-minute OHLCV candlestick charts via TradingView Lightweight Charts.
+- **Live Market Watch:** Instant LTP updates and percentage changes for NIFTY 50 top scrips.
+- **Depth & Analytics:** Visual market depth (L2) and real-time VWAP calculation.
+- **Portfolio Management:** Live tracking of positions, cost basis, and unrealized P&L.
 
-1.  Clone the repository and navigate to the project root.
-2.  Start the services:
-    ```bash
-    docker compose up -d
-    ```
-3.  Access the applications:
-    *   **Trading Terminal (Frontend):** [http://localhost:5173](http://localhost:5173)
-    *   **Engine API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+---
 
-## Manual Setup
+## 🏛️ Architecture
 
-If you prefer to run the components manually without Docker for development:
+```mermaid
+graph TD
+    User((Trader)) -->|HTTP/WS| Frontend[React Terminal]
+    Frontend -->|REST| Engine[FastAPI Engine]
+    Frontend <-->|WebSocket| Engine
+    Engine <-->|Async| DB[(PostgreSQL)]
 
-### 1. Database
+    subgraph "Simulation Engine"
+        Engine --- Agents[Agent Layer]
+        Agents --- MM[Market Makers]
+        Agents --- Retail[Retail Bots]
+        Agents --- Momentum[Momentum Bots]
+        Agents --- Reversion[Mean Reversion Bots]
+        Agents --- Env[Environment Bot]
+    end
 
-You'll need a PostgreSQL database running. You can use the provided docker-compose just for the database:
+    subgraph "Core Components"
+        Engine --- CLOB[Matching Engine - CLOB]
+        Engine --- Analytics[Analytics - VWAP/OHLC]
+        Engine --- Store[In-Memory Trade Store]
+    end
+```
+
+---
+
+## 🚀 Getting Started
+
+### Method 1: Docker (Recommended)
+
+Launch the entire ecosystem with a single command:
+
+```bash
+docker compose up -d
+```
+
+- **Frontend:** [http://localhost:5173](http://localhost:5173)
+- **API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Postgres:** `localhost:5432` (user: `exchange_user`, pass: `exchange_pass`)
+
+### Method 2: Manual Development
+
+If you prefer running services outside Docker:
+
+**1. Database:**
 
 ```bash
 docker compose up -d db
 ```
 
-### 2. Engine (Backend)
-
-Navigate to the `apps/engine` directory:
+**2. Backend (Engine):**
 
 ```bash
 cd apps/engine
-# Create a virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Or .venv\Scripts\activate on Windows
-# Install dependencies
+source .venv/bin/activate # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-# Run the server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload
 ```
 
-### 3. Web (Frontend)
-
-Navigate to the `apps/web` directory:
+**3. Frontend (Web):**
 
 ```bash
 cd apps/web
-# Install dependencies
 npm install
-# Start the development server
 npm run dev
 ```
 
-## Technologies Used
+---
 
-*   **Backend:** Python, FastAPI, SQLAlchemy (Async), PostgreSQL
-*   **Frontend:** React, TypeScript, Vite, TradingView Lightweight Charts
-*   **Infrastructure:** Docker, Docker Compose
+## 📂 Project Structure
+
+```text
+india-exchange-sim/
+├── apps/
+│   ├── engine/          # FastAPI Matcher + Simulation Bots
+│   │   ├── core/        # CLOB, Order, Trade logic
+│   │   ├── db/          # SQLAlchemy Models & Migrations
+│   │   └── simulation/  # Agent personalities & events
+│   └── web/             # React + Vite Frontend
+│       ├── src/
+│       │   ├── components/ # Trading UI Components
+│       │   └── hooks/      # WebSocket & Data fetching
+├── docker-compose.yml   # Full stack orchestration
+└── plan.md              # Project roadmap & progress
+```
+
+---
+
+## 🛠️ Technology Stack
+
+- **Engine:** Python 3.12, FastAPI, SQLAlchemy (Async), Pydantic.
+- **Database:** PostgreSQL 16.
+- **Frontend:** React 18, TypeScript, Vite, TailwindCSS (for layout), TradingView Lightweight Charts.
+- **Ops:** Docker, Docker Compose.
+
+---
+
+## 🛤️ Roadmap
+
+- [x] **Phase 1:** Core Matching Engine & Basic Agents.
+- [ ] **Phase 2:** Market Structure Realism (Circuit Breakers, Pre-open Call Auction, Depth Snapshots).
+- [ ] **Phase 3:** Real NSE Data Seeding (Bhavcopy CSVs) & Corporate Actions.
+- [ ] **Phase 4:** Advanced Frontend (Market Depth Replay, Session Summaries).
+
+---
+
+## 📜 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
+
+---
+
+**Built with ❤️ for Indian Traders.**

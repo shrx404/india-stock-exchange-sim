@@ -206,7 +206,12 @@ class OrderBook:
             price = -price_key if is_bid else price_key
             if price not in seen:
                 seen[price] = {"price": price, "quantity": 0, "orders": 0}
-            seen[price]["quantity"] += order.pending_qty
+            
+            display_qty = order.pending_qty
+            if order.visible_qty > 0:
+                display_qty = min(order.pending_qty, order.visible_qty)
+                
+            seen[price]["quantity"] += display_qty
             seen[price]["orders"]   += 1
 
         sorted_prices = sorted(seen.keys(), reverse=is_bid)

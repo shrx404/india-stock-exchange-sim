@@ -33,6 +33,7 @@ class Order:
     order_id:   str         = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp:  datetime    = field(default_factory=datetime.utcnow)
     filled_qty: int         = 0
+    visible_qty: int        = 0         # 0 means same as quantity
     status:     OrderStatus = OrderStatus.PENDING
 
     @property

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { OrderBook }    from '../components/OrderBook/OrderBook';
 import { OrderForm }    from '../components/OrderForm/OrderForm';
 import { CandleChart }  from '../components/Chart/CandleChart';
@@ -62,13 +62,29 @@ export const Terminal = () => {
   // Compute positions from human fills
   const positions = buildPositions(fills, snapshots);
 
-  const handleTraded = useCallback((res: PlaceOrderResponse, scrip: string, side: 'BUY' | 'SELL') => {
-    for (const t of res.trades) {
-      setFills(prev => [
-        ...prev,
-        { scrip, side, qty: t.quantity, price: t.price },
-      ]);
+  const processedTradeIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const newFills: FillEntry[] = [];
+    for (const t of tradeEvents) {
+      if (!processedTradeIds.current.has(t.trade_id)) {
+        processedTradeIds.current.add(t.trade_id);
+        if (t.buyer_id === TRADER_ID) {
+          newFills.push({ scrip: t.scrip, side: 'BUY', qty: t.quantity, price: t.price });
+        }
+        if (t.seller_id === TRADER_ID) {
+          newFills.push({ scrip: t.scrip, side: 'SELL', qty: t.quantity, price: t.price });
+        }
+      }
     }
+    if (newFills.length > 0) {
+      setFills(prev => [...prev, ...newFills]);
+    }
+  }, [tradeEvents]);
+
+  const handleTraded = useCallback((res: PlaceOrderResponse, scrip: string, side: 'BUY' | 'SELL') => {
+    // Trades are now handled entirely via the WebSocket event stream.
+    // This ensures that limit orders filled later also update the portfolio.
   }, []);
 
   const activeSnapshot = snapshots[activeScrip] ?? null;

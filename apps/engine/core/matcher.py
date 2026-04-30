@@ -3,14 +3,17 @@ from .order_book import OrderBook
 from .trade import Trade
 
 
+from .trade_store import TradeStore
+
 class Matcher:
     """
     Exchange-level matcher.
     Holds one OrderBook per scrip, routes incoming orders.
     """
 
-    def __init__(self):
+    def __init__(self, trade_store: TradeStore | None = None):
         self._books: dict[str, OrderBook] = {}
+        self.trade_store = trade_store
 
     def get_or_create_book(self, scrip: str) -> OrderBook:
         if scrip not in self._books:
@@ -19,7 +22,11 @@ class Matcher:
 
     def place_order(self, order: Order) -> list[Trade]:
         book = self.get_or_create_book(order.scrip)
-        return book.add_order(order)
+        trades = book.add_order(order)
+        if self.trade_store:
+            for t in trades:
+                self.trade_store.add_trade(t)
+        return trades
 
     def cancel_order(self, scrip: str, order_id: str) -> bool:
         book = self._books.get(scrip)
