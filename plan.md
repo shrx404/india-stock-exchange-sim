@@ -46,64 +46,79 @@
 ## 🔴 To Do (Next Steps)
 
 ### Phase 1 — Realistic Agent Behavior
+
 **[COMPLETE]** All tasks for Phase 1 are done.
 
 ### Phase 2 — Market Structure Realism
 
-- [ ] **OHLCV candle builder**
-      Aggregate every trade into 1-min candles, persist to
-      price_history table. Feed the candlestick chart live.
+- **2.1 OHLCV Candle Builder**
+  - [ ] Create an in-memory `CandleAggregator` to bucket real-time trades into 1-minute intervals (Open, High, Low, Close, Volume).
+  - [ ] Implement an async background task to persist completed 1-min candles to the `price_history` Postgres table.
+  - [ ] Add a WebSocket topic (`candles.{scrip}`) to broadcast live candle updates to the frontend chart.
 
-- [ ] **VWAP calculation**
-      Compute real-time VWAP per scrip from trade stream.
-      Used by mean-reversion agents and displayed on chart.
+- **2.2 VWAP Calculation**
+  - [ ] Add running variables for `cumulative_typical_price_volume` and `cumulative_volume` per scrip to the `TradeStore`.
+  - [ ] Update VWAP calculation on every executed trade.
+  - [ ] Expose live VWAP via REST/WebSocket for the Mean Reversion agents and frontend charting.
 
-- [ ] **Circuit breakers**
-      Per-scrip upper/lower circuit limits (±20% default).
-      Trading halts automatically if breached.
+- **2.3 Circuit Breakers**
+  - [ ] Store the previous day's closing price for each scrip in the database/memory.
+  - [ ] Implement a pre-trade check in the Matcher to verify if an incoming order breaches the ±20% threshold.
+  - [ ] Create a `MarketHalt` state in the engine that pauses trading for a specific scrip (or globally) and rejects/queues new orders.
+  - [ ] Broadcast circuit breaker status via WebSocket to show a "HALTED" badge on the frontend.
 
-- [ ] **Pre-open call auction**
-      9:00–9:15 AM simulation — orders queue up, opening
-      price discovered at max-volume price. Matches NSE exactly.
+- **2.4 Pre-Open Call Auction**
+  - [ ] Implement a `MarketSession` state machine (e.g., `PRE_OPEN`, `OPEN`, `CLOSED`).
+  - [ ] Modify the OrderBook to accept orders without matching them when in `PRE_OPEN` state.
+  - [ ] Write the equilibrium price discovery algorithm (find the price point that maximizes executable volume).
+  - [ ] Implement the mass execution logic: match all eligible orders at the exact equilibrium price, then transition state to `OPEN`.
 
-- [ ] **Market depth history**
-      Store order book snapshots every 30 seconds to Postgres.
-      Lets you replay how the book looked at any point in time.
+- **2.5 Market Depth History**
+  - [ ] Create a `MarketDepthSnapshot` database table.
+  - [ ] Implement a cron-like timer in FastAPI to serialize the top 5 levels of the OrderBook for all scrips every 30 seconds.
+  - [ ] Write an async bulk-insert operation to persist these snapshots without blocking the matching engine.
 
 ### Phase 3 — Data & Seeding
 
-- [ ] **Real NSE historical prices**
-      Load Bhavcopy CSVs (free from NSE website) as seed prices.
-      Agents use these as reference prices instead of synthetic ones.
+- **3.1 Real NSE Historical Prices**
+  - [ ] Write a standalone script to download and parse NSE Bhavcopy CSVs.
+  - [ ] Create a seeding utility to populate the `price_history` database table with this reference data.
+  - [ ] Update the engine's initialization sequence to load these base prices to set the starting point for agents.
 
-- [ ] **All NIFTY 50 scrips**
-      Expand from 10 to all 50 scrips with correct lot sizes,
-      tick sizes, and sector groupings.
+- **3.2 Expand to NIFTY 50**
+  - [ ] Create a `scrip_metadata` JSON or config file defining all 50 scrips, their sector, correct lot sizes, and tick sizes.
+  - [ ] Update the `Order` model and `OrderForm` validation to strictly enforce lot size and tick size increments.
+  - [ ] Scale up the simulation agents to monitor and trade across all 50 order books.
 
-- [ ] **Corporate action handling**
-      Dividends, splits, bonuses adjust reference prices correctly.
-      Prevents chart gaps from looking unrealistic.
+- **3.3 Corporate Action Handling**
+  - [ ] Create a database table for `corporate_actions` (Ex-date, type: split/bonus/dividend, ratio/amount).
+  - [ ] Write a utility function to apply a mathematical adjustment factor to historical data and reference prices when an ex-date is crossed.
 
 ### Phase 4 — Frontend Polish (Lowest Priority)
 
-- [ ] **Chart indicators**
-      VWAP line, volume bars below candles, EMA 9/21 overlays.
+- **4.1 Chart Indicators**
+  - [ ] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
+  - [ ] Add a histogram series at the bottom of the chart pane for Volume bars.
+  - [ ] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
 
-- [ ] **Order history table**
-      Full table of your past orders — status, fill price,
-      time, P&L per trade.
+- **4.2 Order History Table**
+  - [ ] Create a REST endpoint `/api/users/orders` to fetch historical orders with pagination.
+  - [ ] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
+  - [ ] Calculate and display per-trade P&L based on average fill price vs current LTP.
 
-- [ ] **Market depth replay**
-      Scrubber to rewind and replay the order book at any
-      past timestamp from stored snapshots.
+- **4.3 Market Depth Replay**
+  - [ ] Build a timeline scrubber/slider UI component.
+  - [ ] Create a REST endpoint `/api/depth/snapshot?timestamp=X` to fetch specific historical states.
+  - [ ] Wire the UI to disconnect the live WebSocket and render the fetched historical depth data when scrubbing.
 
-- [ ] **Simulation speed control**
-      1x / 5x / 10x speed toggle so you can fast-forward
-      through slow market periods.
+- **4.4 Simulation Speed Control**
+  - [ ] Implement a global `SIM_SPEED_MULTIPLIER` in the engine.
+  - [ ] Link the multiplier to agent `sleep()` or `delay()` functions (e.g., 10x speed divides delays by 10).
+  - [ ] Add a 1x/5x/10x toggle UI on the frontend that triggers an admin REST endpoint to adjust the multiplier.
 
-- [ ] **Session summary**
-      End-of-day report — total volume, most active scrip,
-      biggest mover, your P&L summary.
+- **4.5 Session Summary**
+  - [ ] Write an aggregation query/endpoint to calculate EOD stats (total volume, biggest gainer/loser).
+  - [ ] Build an End-of-Day modal summary screen that displays global market stats and the user's realized/unrealized P&L.
 
 ---
 

@@ -1,6 +1,6 @@
-export type Side = 'BUY' | 'SELL';
-export type OrderType = 'MARKET' | 'LIMIT';
-export type OrderStatus = 'PENDING' | 'PARTIAL' | 'FILLED' | 'CANCELLED';
+export type Side = "BUY" | "SELL";
+export type OrderType = "MARKET" | "LIMIT";
+export type OrderStatus = "PENDING" | "PARTIAL" | "FILLED" | "CANCELLED";
 
 export interface OrderBookLevel {
   price: number;
@@ -31,7 +31,7 @@ export interface PlaceOrderResponse {
 }
 
 export interface CandleBar {
-  time: string;   // "2024-01-01T09:15:00"
+  time: string; // "2024-01-01T09:15:00"
   open: number;
   high: number;
   low: number;
@@ -49,14 +49,15 @@ export interface MarketWatchItem {
 
 export interface PortfolioPosition {
   scrip: string;
-  netQty: number;      // positive = long, negative = short
+  netQty: number; // positive = long, negative = short
   avgPrice: number;
   ltp: number | null;
   pnl: number;
+  realizedPnl?: number; // ADD THIS LINE!
 }
 
 export interface WsTradeEvent {
-  event: 'trade';
+  event: "trade";
   scrip: string;
   price: number;
   quantity: number;
@@ -66,7 +67,7 @@ export interface WsTradeEvent {
 }
 
 export interface WsDepthEvent extends OrderBookSnapshot {
-  event: 'depth';
+  event: "depth";
 }
 
 export type WsMessage = WsTradeEvent | WsDepthEvent;

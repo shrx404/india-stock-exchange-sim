@@ -30,7 +30,7 @@ A high-performance, full-stack trading exchange simulator tailored for the India
 - **Real-time Charts:** 1-minute OHLCV candlestick charts via TradingView Lightweight Charts.
 - **Live Market Watch:** Instant LTP updates and percentage changes for NIFTY 50 top scrips.
 - **Depth & Analytics:** Visual market depth (L2) and real-time VWAP calculation.
-- **Portfolio Management:** Live tracking of positions, cost basis, and unrealized P&L.
+- **Portfolio Management:** Live tracking of positions, cost basis, realized profit, and floating P&L.
 
 ---
 
@@ -135,8 +135,8 @@ india-exchange-sim/
 
 ## 🛤️ Roadmap
 
-- [x] **Phase 1:** Core Matching Engine & Basic Agents.
-- [ ] **Phase 2:** Market Structure Realism (Circuit Breakers, Pre-open Call Auction, Depth Snapshots).
+- [x] **Phase 1:** Core Matching Engine & Basic Agents (MM, Retail, Momentum).
+- [ ] **Phase 2:** Market Structure Realism (OHLCV Candles, VWAP, Circuit Breakers, Pre-open Auction).
 - [ ] **Phase 3:** Real NSE Data Seeding (Bhavcopy CSVs) & Corporate Actions.
 - [ ] **Phase 4:** Advanced Frontend (Market Depth Replay, Session Summaries).
 
