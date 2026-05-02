@@ -5,6 +5,7 @@ import { OrderForm } from "../components/OrderForm/OrderForm";
 // import { CandleChart } from "../components/Chart/CandleChart";
 import { MarketWatch } from "../components/MarketWatch/MarketWatch";
 import { Portfolio } from "../components/Portfolio/Portfolio";
+import { OrderHistory } from "../components/OrderHistory/OrderHistory";
 
 const CandleChart = lazy(() => import("../components/Chart/CandleChart").then(m => ({ default: m.CandleChart })));
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -322,6 +323,7 @@ export const Terminal = () => {
   const [activeScrip, setActiveScrip] = useState("RELIANCE");
   const [fills, setFills]             = useState<FillEntry[]>([]);
   const [logOpen, setLogOpen]         = useState(true);
+  const [footerTab, setFooterTab]     = useState<'portfolio' | 'orders'>('portfolio');
   const [scripMetadata, setScripMetadata] = useState<
     Record<string, { sector: string; lot_size: number; tick_size: number }>
   >({});
@@ -491,16 +493,57 @@ export const Terminal = () => {
           </div>
         </div>
 
-        {/* Portfolio footer */}
+        {/* Footer Tabs & Content */}
         <div
           style={{
             height: 200,
             flexShrink: 0,
             borderTop: "1px solid #1a1a1a",
+            display: "flex",
+            flexDirection: "column",
             overflow: "hidden",
+            background: "#080808"
           }}
         >
-          <Portfolio positions={positions} />
+          <div style={{ display: "flex", borderBottom: "1px solid #1a1a1a" }}>
+            <button
+              onClick={() => setFooterTab('portfolio')}
+              style={{
+                padding: "6px 16px",
+                background: footerTab === 'portfolio' ? "#141414" : "transparent",
+                border: "none",
+                color: footerTab === 'portfolio' ? "#f0c040" : "#555",
+                fontSize: 10,
+                letterSpacing: 1,
+                fontWeight: 600,
+                borderTop: footerTab === 'portfolio' ? "2px solid #f0c040" : "2px solid transparent",
+              }}
+            >
+              PORTFOLIO
+            </button>
+            <button
+              onClick={() => setFooterTab('orders')}
+              style={{
+                padding: "6px 16px",
+                background: footerTab === 'orders' ? "#141414" : "transparent",
+                border: "none",
+                color: footerTab === 'orders' ? "#f0c040" : "#555",
+                fontSize: 10,
+                letterSpacing: 1,
+                fontWeight: 600,
+                borderTop: footerTab === 'orders' ? "2px solid #f0c040" : "2px solid transparent",
+              }}
+            >
+              ORDER HISTORY
+            </button>
+          </div>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            {footerTab === 'portfolio' ? (
+              <Portfolio positions={positions} />
+            ) : (
+              <OrderHistory traderId={TRADER_ID} marketWatch={throttledMarketWatch} />
+            )}
+          </div>
         </div>
       </div>
 

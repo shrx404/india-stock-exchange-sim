@@ -580,6 +580,82 @@ async def get_trades(scrip: str, limit: int = 50):
         return {"error": str(e), "trades": []}
 
 
+@app.get("/api/users/orders")
+async def get_user_orders(trader_id: str, limit: int = 50, offset: int = 0):
+    """Fetch historical orders with pagination and calculated average fill price."""
+    try:
+        from sqlalchemy import select, desc, func
+        async with get_session() as session:
+            total_count = (await session.execute(
+                select(func.count(OrderRecord.id))
+                .where(OrderRecord.trader_id == trader_id)
+            )).scalar()
+
+            rows = (await session.execute(
+                select(OrderRecord)
+                .where(OrderRecord.trader_id == trader_id)
+                .order_by(desc(OrderRecord.created_at))
+                .limit(limit)
+                .offset(offset)
+            )).scalars().all()
+
+            order_ids = [r.order_id for r in rows]
+            avg_price_map = {}
+
+            if order_ids:
+                trades = (await session.execute(
+                    select(TradeRecord)
+                    .where(
+                        (TradeRecord.buy_order.in_(order_ids)) | 
+                        (TradeRecord.sell_order.in_(order_ids))
+                    )
+                )).scalars().all()
+                
+                cost_map = {oid: 0.0 for oid in order_ids}
+                qty_map = {oid: 0 for oid in order_ids}
+                for t in trades:
+                    if t.buy_order in cost_map:
+                        cost_map[t.buy_order] += float(t.price) * t.quantity
+                        qty_map[t.buy_order] += t.quantity
+                    if t.sell_order in cost_map:
+                        cost_map[t.sell_order] += float(t.price) * t.quantity
+                        qty_map[t.sell_order] += t.quantity
+                        
+                for oid in order_ids:
+                    if qty_map[oid] > 0:
+                        avg_price_map[oid] = cost_map[oid] / qty_map[oid]
+                    else:
+                        avg_price_map[oid] = 0.0
+
+            orders = [
+                {
+                    "order_id"  : r.order_id,
+                    "scrip"     : r.scrip,
+                    "side"      : r.side,
+                    "order_type": r.order_type,
+                    "quantity"  : r.quantity,
+                    "price"     : float(r.price),
+                    "filled_qty": r.filled_qty,
+                    "status"    : r.status,
+                    "created_at": str(r.created_at),
+                    "avg_price" : avg_price_map.get(r.order_id, 0.0)
+                }
+                for r in rows
+            ]
+            
+            return {
+                "total": total_count,
+                "orders": orders,
+                "limit": limit,
+                "offset": offset
+            }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # ------------------------------------------------------------------
 # WebSocket — per-scrip subscriptions, 100ms batch flusher
 # ------------------------------------------------------------------

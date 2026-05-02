@@ -172,23 +172,17 @@ The DB is being hit synchronously on every trade. Under 50-scrip load this cause
 
 **6.2 Order History Table**
 
-- [ ] Create a REST endpoint /api/users/orders to fetch historical orders with pagination.
-- [ ] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
-- [ ] Calculate and display per-trade P&L based on average fill price vs current LTP.
+- [x] Create a REST endpoint /api/users/orders to fetch historical orders with pagination.
+- [x] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
+- [x] Calculate and display per-trade P&L based on average fill price vs current LTP.
 
-**6.3 Market Depth Replay**
-
-- [ ] Build a timeline scrubber/slider UI component.
-- [ ] Create a REST endpoint /api/depth/snapshot?timestamp=X to fetch specific historical states.
-- [ ] Wire the UI to disconnect the live WebSocket and render the fetched historical depth data when scrubbing.
-
-**6.4 Simulation Speed Control**
+**6.3 Simulation Speed Control**
 
 - [ ] Implement a global SIM_SPEED_MULTIPLIER in the engine.
 - [ ] Link the multiplier to agent sleep() or delay() functions (e.g., 10x speed divides delays by 10).
 - [ ] Add a 1x/5x/10x toggle UI on the frontend that triggers an admin REST endpoint to adjust the multiplier.
 
-**6.5 Session Summary**
+**6.4 Session Summary**
 
 - [ ] Write an aggregation query/endpoint to calculate EOD stats (total volume, biggest gainer/loser).
 - [ ] Build an End-of-Day modal summary screen that displays global market stats and the user's realized/unrealized P&L.
