@@ -27,6 +27,12 @@ matcher:     Matcher    = Matcher(trade_store)
 candle_aggregator       = CandleAggregator()
 
 # ------------------------------------------------------------------
+# DB Write Buffers
+# ------------------------------------------------------------------
+_order_write_buffer: list[OrderRecord] = []
+_trade_write_buffer: list[TradeRecord] = []
+
+# ------------------------------------------------------------------
 # Connection Manager — per-scrip topic routing + 100ms batch buffer
 # ------------------------------------------------------------------
 class ConnectionManager:
@@ -222,6 +228,36 @@ async def ltp_heartbeat_task(interval: float = 0.5) -> None:
         await asyncio.sleep(interval)
 
 
+async def db_write_buffer_task(interval: float = 0.5) -> None:
+    """Periodically flushes accumulated orders and trades to DB."""
+    await asyncio.sleep(2.0)  # wait for engine to warm up
+    while True:
+        await asyncio.sleep(interval)
+        if not _order_write_buffer and not _trade_write_buffer:
+            continue
+            
+        # Snapshot the current buffer and clear
+        orders_to_write = _order_write_buffer[:]
+        trades_to_write = _trade_write_buffer[:]
+        _order_write_buffer.clear()
+        _trade_write_buffer.clear()
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                async with get_session() as session:
+                    session.add_all(orders_to_write)
+                    session.add_all(trades_to_write)
+                    # get_session automatically commits on successful yield
+                break # success, exit retry loop
+            except Exception as e:
+                print(f"[DB Write Buffer] Flush failed (attempt {attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1.0) # wait before retry
+                else:
+                    print("[DB Write Buffer] Dropping batch after max retries.")
+
+
 # ------------------------------------------------------------------
 # Lifespan — startup / shutdown
 # ------------------------------------------------------------------
@@ -259,8 +295,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(record_market_depth_task(30.0),  name="depth_recorder"),
         asyncio.create_task(manager.flush_loop(),            name="ws_batch_flusher"),
         asyncio.create_task(ltp_heartbeat_task(0.5),         name="ltp_heartbeat"),
+        asyncio.create_task(db_write_buffer_task(0.5),       name="db_write_buffer"),
     ]
-    print("[Bots] all bots started | WS batch flusher @ 100ms | LTP heartbeat @ 500ms")
+    print("[Bots] all bots started | WS batch flusher @ 100ms | LTP heartbeat @ 500ms | DB Buffer @ 500ms")
 
     yield  # ← app is running
 
@@ -329,32 +366,27 @@ async def place_order(req: PlaceOrderRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Persist to DB (best-effort)
-    try:
-        async with get_session() as session:
-            session.add(OrderRecord(
-                order_id   = order.order_id,
-                scrip      = order.scrip,
-                trader_id  = order.trader_id,
-                side       = order.side.value,
-                order_type = order.order_type.value,
-                quantity   = order.quantity,
-                price      = order.price,
-                filled_qty = order.filled_qty,
-                status     = order.status.value,
-            ))
-            for t in trades:
-                session.add(TradeRecord(
-                    trade_id   = t.trade_id,
-                    scrip      = t.scrip,
-                    buy_order  = t.buy_order,
-                    sell_order = t.sell_order,
-                    price      = t.price,
-                    quantity   = t.quantity,
-                ))
-                await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
-    except Exception as db_err:
-        print(f"[DB write skip] {db_err}")
+    # Queue DB Writes
+    _order_write_buffer.append(OrderRecord(
+        order_id   = order.order_id,
+        scrip      = order.scrip,
+        trader_id  = order.trader_id,
+        side       = order.side.value,
+        order_type = order.order_type.value,
+        quantity   = order.quantity,
+        price      = order.price,
+        filled_qty = order.filled_qty,
+        status     = order.status.value,
+    ))
+    for t in trades:
+        _trade_write_buffer.append(TradeRecord(
+            trade_id   = t.trade_id,
+            scrip      = t.scrip,
+            buy_order  = t.buy_order,
+            sell_order = t.sell_order,
+            price      = t.price,
+            quantity   = t.quantity,
+        ))
 
     # Enqueue batched WS events
     depth = matcher.get_depth(req.scrip.upper())
@@ -457,20 +489,16 @@ async def set_session_state(scrip: str, req: SessionStateRequest):
         matcher.halt_market(scrip.upper())
     elif state == "OPEN":
         trades = matcher.open_market(scrip.upper())
-        try:
-            async with get_session() as session:
-                for t in trades:
-                    session.add(TradeRecord(
-                        trade_id   = t.trade_id,
-                        scrip      = t.scrip,
-                        buy_order  = t.buy_order,
-                        sell_order = t.sell_order,
-                        price      = t.price,
-                        quantity   = t.quantity,
-                    ))
-                    await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
-        except Exception as e:
-            print(f"[DB] Call auction trades persist error: {e}")
+        for t in trades:
+            _trade_write_buffer.append(TradeRecord(
+                trade_id   = t.trade_id,
+                scrip      = t.scrip,
+                buy_order  = t.buy_order,
+                sell_order = t.sell_order,
+                price      = t.price,
+                quantity   = t.quantity,
+            ))
+            await candle_aggregator.update_candle(t.scrip, t.price, t.quantity)
 
         depth = matcher.get_depth(scrip.upper())
         manager.enqueue_depth(scrip.upper(), {**depth, "event": "depth"})

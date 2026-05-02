@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS trades (
 
 -- Price history (OHLCV candles, 1-min default)
 CREATE TABLE IF NOT EXISTS price_history (
-    id         SERIAL PRIMARY KEY,
     scrip      VARCHAR(20) NOT NULL REFERENCES scrips(symbol),
     open       NUMERIC(10, 2),
     high       NUMERIC(10, 2),
@@ -60,8 +59,10 @@ CREATE TABLE IF NOT EXISTS price_history (
     close      NUMERIC(10, 2),
     volume     BIGINT DEFAULT 0,
     candle_time TIMESTAMPTZ NOT NULL,
-    UNIQUE(scrip, candle_time)
-);
+    PRIMARY KEY (scrip, candle_time)
+) PARTITION BY RANGE (candle_time);
+
+CREATE INDEX IF NOT EXISTS idx_price_history_scrip_time ON price_history (scrip, candle_time DESC);
 
 -- Market depth history snapshots
 CREATE TABLE IF NOT EXISTS market_depth_snapshots (
@@ -71,6 +72,8 @@ CREATE TABLE IF NOT EXISTS market_depth_snapshots (
     bids        JSONB NOT NULL,
     asks        JSONB NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_depth_snap_scrip_time ON market_depth_snapshots (scrip, snapshot_time DESC);
 
 -- Seed: NIFTY 50 scrips
 INSERT INTO scrips (symbol, name) VALUES

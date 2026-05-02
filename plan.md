@@ -151,9 +151,9 @@ The single biggest frontend killer. Every trade currently triggers an immediate 
 
 The DB is being hit synchronously on every trade. Under 50-scrip load this causes write queuing.
 
-- [ ] Implement a **write buffer** in the engine — accumulate trades and orders in memory and flush to PostgreSQL in bulk every 500ms using a background `asyncio` task instead of per-trade inserts.
-- [ ] Add a `pg_partman`-style **time-based partition** on the `price_history` table by month, so candle queries don't full-scan the entire history table as it grows.
-- [ ] Add a **composite index** on `(scrip, timestamp DESC)` for the `price_history` and `market_depth_snapshots` tables — the two most-queried tables on startup.
+- [x] Implement a **write buffer** in the engine — accumulate trades and orders in memory and flush to PostgreSQL in bulk every 500ms using a background `asyncio` task instead of per-trade inserts.
+- [x] Add a `pg_partman`-style **time-based partition** on the `price_history` table by month, so candle queries don't full-scan the entire history table as it grows.
+- [x] Add a **composite index** on `(scrip, timestamp DESC)` for the `price_history` and `market_depth_snapshots` tables — the two most-queried tables on startup.
 
 **5.4 Engine-Side Agent Scheduling**
 

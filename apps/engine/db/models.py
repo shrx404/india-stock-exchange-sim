@@ -74,14 +74,13 @@ class TradeRecord(Base):
 class PriceHistoryRecord(Base):
     __tablename__ = "price_history"
 
-    id          = Column(Integer, primary_key=True)
-    scrip       = Column(String(20), ForeignKey("scrips.symbol"), nullable=False)
+    scrip       = Column(String(20), ForeignKey("scrips.symbol"), primary_key=True)
+    candle_time = Column(DateTime(timezone=True), primary_key=True)
     open        = Column(Numeric(10, 2))
     high        = Column(Numeric(10, 2))
     low         = Column(Numeric(10, 2))
     close       = Column(Numeric(10, 2))
     volume      = Column(Integer, default=0)
-    candle_time = Column(DateTime(timezone=True), nullable=False)
 
 
 class MarketDepthSnapshotRecord(Base):
