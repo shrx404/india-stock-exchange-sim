@@ -171,8 +171,8 @@ india-exchange-sim/
 - [x] **Phase 2: Market Realism** - VWAP calculations, 1-min OHLCV aggregation, ±20% circuit breakers, Pre-open call auction state machines.
 - [x] **Phase 3: UI Redesign** - Master-detail trading terminal, grid architecture, TradingView integration with technical overlays (EMA/VWAP).
 - [x] **Phase 4: Real Data & NIFTY 50** - Scaled the engine to actively trade all 50 constituent scrips of the NIFTY 50, seeded with historical EOD data from Yahoo Finance.
-- [ ] **Phase 5: Corporate Actions & Advanced Replay** - Handling stock splits/dividends, chronological market depth timeline scrubbers, and simulation speed multipliers (1x/5x/10x).
-
+- [x] **Phase 5: Performance Optimization** - Server-side WebSocket broadcast buffering, per-scrip topic routing, and diff-only LTP heartbeats for a high-performance React UI.
+- [ ] **Phase 6: Frontend Polish & Replay** - Corporate action handling (splits/dividends), chronological market depth timeline scrubbers, simulation speed controls (1x/5x/10x), and end-of-day summary reports.
 ---
 
 ## 📜 License

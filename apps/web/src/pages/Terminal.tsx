@@ -276,7 +276,12 @@ export const Terminal = () => {
   const [logOpen, setLogOpen] = useState(true);
   const [scripMetadata, setScripMetadata] = useState<Record<string, { sector: string, lot_size: number, tick_size: number }>>({});
 
-  const { snapshots, tradeEvents, candleEvents, connected } = useWebSocket();
+  const { snapshots, tradeEvents, candleEvents, marketWatch, connected, subscribeScrip } = useWebSocket();
+
+  // Notify engine whenever the user switches scrip — routes depth/candle to this client
+  useEffect(() => {
+    subscribeScrip(activeScrip);
+  }, [activeScrip, subscribeScrip]);
 
   useEffect(() => {
     fetch('http://localhost:8000/scrips')
@@ -386,7 +391,7 @@ export const Terminal = () => {
         </div>
 
         {/* Market watch */}
-        <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} />
+        <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} liveData={marketWatch} />
 
         {/* Main workspace */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>

@@ -5,41 +5,54 @@ const API = 'http://localhost:8000';
 
 interface Props {
   activeScrip: string;
-  onSelect: (scrip: string) => void;
+  onSelect:    (scrip: string) => void;
+  /** Live LTP map pushed from the parent via the WS hook (diff-only updates) */
+  liveData?:   Record<string, MarketWatchItem>;
 }
 
-export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
+export const MarketWatch = ({ activeScrip, onSelect, liveData }: Props) => {
+  // Bootstrap from REST on first mount; WS diffs keep it live afterwards.
   const [items, setItems] = useState<MarketWatchItem[]>([]);
 
   useEffect(() => {
-    const fetch_ = async () => {
+    const load = async () => {
       try {
         const res  = await fetch(`${API}/market-watch`);
         const data = await res.json();
         if (Array.isArray(data)) setItems(data);
       } catch { /* silent */ }
     };
-
-    fetch_();
-    const id = setInterval(fetch_, 2_000);
-    return () => clearInterval(id);
+    load();
+    // No polling interval — WS ltp_update events handle live updates
   }, []);
+
+  // Merge live WS diff data over the REST-bootstrapped list.
+  // Only patches entries that have actually changed (server already gates diffs).
+  const merged: MarketWatchItem[] = items.map(item => {
+    const live = liveData?.[item.scrip];
+    return live ? { ...item, ...live } : item;
+  });
+
+  // If WS data already arrived before REST (fast connect), seed from it
+  const display = merged.length > 0
+    ? merged
+    : Object.values(liveData ?? {});
 
   return (
     <div style={{
-      display       : 'flex',
-      alignItems    : 'center',
-      gap           : 0,
-      overflowX     : 'auto',
-      borderBottom  : '1px solid #1e1e1e',
-      background    : '#050505',
-      padding       : '0 4px',
+      display      : 'flex',
+      alignItems   : 'center',
+      gap          : 0,
+      overflowX    : 'auto',
+      borderBottom : '1px solid #1e1e1e',
+      background   : '#050505',
+      padding      : '0 4px',
     }}>
-      {items.map(item => {
-        const isActive  = item.scrip === activeScrip;
-        const isUp      = (item.change ?? 0) >= 0;
-        const ltpColor  = item.ltp == null ? '#444' : isUp ? '#3ddc84' : '#f05050';
-        const pctColor  = item.ltp == null ? '#444' : isUp ? '#3ddc84' : '#f05050';
+      {display.map(item => {
+        const isActive = item.scrip === activeScrip;
+        const isUp     = (item.change ?? 0) >= 0;
+        const ltpColor = item.ltp == null ? '#444' : isUp ? '#3ddc84' : '#f05050';
+        const pctColor = ltpColor;
 
         return (
           <button
@@ -59,7 +72,7 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
           >
             <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 2, color: isActive ? '#f0c040' : '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
               {item.scrip}
-              {item.session_state === 'HALTED' && <span style={{ fontSize: 8, padding: '1px 3px', background: '#f05050', color: 'white', borderRadius: 2 }}>HALTED</span>}
+              {item.session_state === 'HALTED'   && <span style={{ fontSize: 8, padding: '1px 3px', background: '#f05050', color: 'white', borderRadius: 2 }}>HALTED</span>}
               {item.session_state === 'PRE_OPEN' && <span style={{ fontSize: 8, padding: '1px 3px', background: '#3080c0', color: 'white', borderRadius: 2 }}>PRE-OPEN</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
@@ -69,8 +82,7 @@ export const MarketWatch = ({ activeScrip, onSelect }: Props) => {
               <span style={{ fontSize: 10, color: pctColor }}>
                 {item.ltp != null
                   ? `${item.changePct >= 0 ? '+' : ''}${item.changePct.toFixed(2)}%`
-                  : ''
-                }
+                  : ''}
               </span>
             </div>
           </button>

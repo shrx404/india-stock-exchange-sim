@@ -136,9 +136,9 @@
 
 The single biggest frontend killer. Every trade currently triggers an immediate broadcast, meaning the React tree re-renders at the same rate as the matching engine fires.
 
-- [ ] Implement a server-side **broadcast buffer** — collect all events within a 100ms window and send them as a single batched array instead of individual messages.
-- [ ] Separate WebSocket topics by scrip (`depth.RELIANCE`, `candles.TCS`) so the frontend only subscribes to the active scrip's high-frequency feed, not all 50.
-- [ ] Add a **heartbeat/diff-only** mode for the market watch panel — only broadcast a scrip's LTP update if it has actually changed since the last tick.
+- [x] Implement a server-side **broadcast buffer** — collect all events within a 100ms window and send them as a single batched array instead of individual messages.
+- [x] Separate WebSocket topics by scrip (`depth.RELIANCE`, `candles.TCS`) so the frontend only subscribes to the active scrip's high-frequency feed, not all 50.
+- [x] Add a **heartbeat/diff-only** mode for the market watch panel — only broadcast a scrip's LTP update if it has actually changed since the last tick.
 
 **5.2 Frontend Re-render Optimization**
 

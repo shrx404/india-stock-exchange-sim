@@ -79,4 +79,8 @@ export interface WsCandleEvent {
   candle: CandleBar;
 }
 
-export type WsMessage = WsTradeEvent | WsDepthEvent | WsCandleEvent;
+export interface WsLtpUpdateEvent extends MarketWatchItem {
+  event: 'ltp_update';
+}
+
+export type WsMessage = WsTradeEvent | WsDepthEvent | WsCandleEvent | WsLtpUpdateEvent;

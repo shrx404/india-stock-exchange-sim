@@ -54,6 +54,11 @@ def _mid(matcher: Matcher, scrip: str) -> float:
     ltp = matcher.get_ltp(scrip)
     return ltp if ltp is not None else SEED_PRICES.get(scrip, 1000.0)
 
+def _round_to_tick(price: float, scrip: str) -> float:
+    meta = SCRIP_METADATA.get(scrip)
+    tick = meta["tick_size"] if meta else 0.05
+    return round(round(price / tick) * tick, 2)
+
 
 @dataclass
 class AgentConfig:
@@ -130,7 +135,6 @@ class MarketMakerBot(BaseAgent):
 
         # Base config for ladders
         self.mm_levels = 8
-        self.base_tick = 1.00
 
     async def step(self):
         vm = get_volume_multiplier()
@@ -145,22 +149,26 @@ class MarketMakerBot(BaseAgent):
             prev_mid = self._last_mid.get(scrip, mid)
             self._last_mid[scrip] = mid
 
+            meta = SCRIP_METADATA.get(scrip)
+            scrip_tick = meta["tick_size"] if meta else 0.05
+
             # Spread management: widen spread if volatility is high
-            # e.g., if price moved > 0.2% since last interval, double the spread
             volatility = abs(mid - prev_mid) / prev_mid if prev_mid else 0
-            tick_size = self.base_tick * (2.0 if volatility > 0.002 else 1.0)
+            # Market Maker multiplier for tick size (usually 1 or 2 to stay close, but scaled to scrip tick)
+            # base_tick should be a sensible distance, like 5 ticks
+            base_tick = scrip_tick * 5
+            tick_size = base_tick * (2.0 if volatility > 0.002 else 1.0)
 
             # Generate new quotes
             for i in range(1, self.mm_levels + 1):
                 intent_qty = 50 + random.randint(-10, 10)
                 
                 # Iceberg logic: actual size is larger, but visible_qty is smaller
-                # High aggression MM -> shows more size
                 visible_qty = int(intent_qty * self.config.aggression * vm)
                 visible_qty = max(1, visible_qty)
 
                 # Buy
-                bid_price = round(mid - i * tick_size, 2)
+                bid_price = _round_to_tick(mid - i * tick_size, scrip)
                 o_bid = Order(
                     scrip=scrip, side=Side.BUY, order_type=OrderType.LIMIT,
                     quantity=intent_qty, price=bid_price, trader_id=self.agent_id,
@@ -170,7 +178,7 @@ class MarketMakerBot(BaseAgent):
                 self._my_orders[scrip].append(o_bid.order_id)
 
                 # Sell
-                ask_price = round(mid + i * tick_size, 2)
+                ask_price = _round_to_tick(mid + i * tick_size, scrip)
                 o_ask = Order(
                     scrip=scrip, side=Side.SELL, order_type=OrderType.LIMIT,
                     quantity=intent_qty, price=ask_price, trader_id=self.agent_id,
@@ -209,7 +217,8 @@ class RetailBot(BaseAgent):
         else:
             # Limit price within ±2% of mid
             offset = mid * random.uniform(0.001, 0.02)
-            price  = round(mid + offset if side == Side.BUY else mid - offset, 2)
+            raw_price = mid + offset if side == Side.BUY else mid - offset
+            price = _round_to_tick(raw_price, scrip)
             order  = Order(
                 scrip=scrip, side=side, order_type=OrderType.LIMIT,
                 quantity=qty, price=price, trader_id=self.agent_id
@@ -304,7 +313,8 @@ class MeanReversionBot(BaseAgent):
                 
                 # Place limit order close to mid to revert
                 offset = mid * 0.001
-                price = round(mid - offset if side == Side.BUY else mid + offset, 2)
+                raw_price = mid - offset if side == Side.BUY else mid + offset
+                price = _round_to_tick(raw_price, scrip)
                 
                 order = Order(
                     scrip=scrip, side=side, order_type=OrderType.LIMIT,

@@ -79,7 +79,7 @@ INSERT INTO scrips (symbol, name) VALUES
     ('HDFCBANK',  'HDFC Bank Ltd'),
     ('INFY',      'Infosys Ltd'),
     ('ICICIBANK', 'ICICI Bank Ltd'),
-    ('HINDUNILVR','H हिंदुस्तान Unilever Ltd'),
+    ('HINDUNILVR','Hindustan Unilever Ltd'),
     ('SBIN',      'State Bank of India'),
     ('BHARTIARTL','Bharti Airtel Ltd'),
     ('KOTAKBANK', 'Kotak Mahindra Bank Ltd'),
