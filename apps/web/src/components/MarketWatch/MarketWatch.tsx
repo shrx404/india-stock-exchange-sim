@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { MarketWatchItem } from '../../types/exchange';
 
 const API = 'http://localhost:8000';
@@ -10,7 +10,7 @@ interface Props {
   liveData?:   Record<string, MarketWatchItem>;
 }
 
-export const MarketWatch = ({ activeScrip, onSelect, liveData }: Props) => {
+export const MarketWatch = memo(function MarketWatch({ activeScrip, onSelect, liveData }: Props) {
   // Bootstrap from REST on first mount; WS diffs keep it live afterwards.
   const [items, setItems] = useState<MarketWatchItem[]>([]);
 
@@ -90,4 +90,4 @@ export const MarketWatch = ({ activeScrip, onSelect, liveData }: Props) => {
       })}
     </div>
   );
-};
+});

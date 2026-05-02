@@ -142,10 +142,10 @@ The single biggest frontend killer. Every trade currently triggers an immediate 
 
 **5.2 Frontend Re-render Optimization**
 
-- [ ] Wrap all major components (`OrderBook`, `CandleChart`, `Portfolio`, `MarketWatch`) in `React.memo` to prevent re-renders when their props haven't changed.
-- [ ] Move WebSocket message processing off the main thread using a `useReducer` + `useMemo` pattern instead of raw `useState` chains to batch React state updates.
-- [ ] Virtualize the Trade Log using `react-window` or `react-virtual` — rendering 40 DOM nodes on every trade event is expensive; only render what's visible.
-- [ ] Throttle the `MarketWatch` panel updates to max 2 updates/second per scrip using a `useThrottle` hook, as sub-100ms LTP flicker has no user value.
+- [x] Wrap all major components (`OrderBook`, `CandleChart`, `Portfolio`, `MarketWatch`) in `React.memo` to prevent re-renders when their props haven't changed.
+- [x] Move WebSocket message processing off the main thread using a `useReducer` + `useMemo` pattern instead of raw `useState` chains to batch React state updates.
+- [x] Virtualize the Trade Log using `react-window` or `react-virtual` — rendering 40 DOM nodes on every trade event is expensive; only render what's visible.
+- [x] Throttle the `MarketWatch` panel updates to max 2 updates/second per scrip using a `useThrottle` hook, as sub-100ms LTP flicker has no user value.
 
 **5.3 Database Write Pressure Relief**
 

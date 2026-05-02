@@ -1,10 +1,12 @@
+import { memo } from "react";
+
 import type { PortfolioPosition } from "../../types/exchange";
 
 interface Props {
   positions: PortfolioPosition[];
 }
 
-export const Portfolio = ({ positions }: Props) => {
+export const Portfolio = memo(function Portfolio({ positions }: Props) {
   // Calculate Total (Unrealized + Realized) P&L
   const totalPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
 
@@ -152,4 +154,4 @@ export const Portfolio = ({ positions }: Props) => {
       )}
     </div>
   );
-};
+});

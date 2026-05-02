@@ -1,14 +1,17 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from "react";
+import { FixedSizeList, type ListChildComponentProps } from "react-window";
 import { OrderBook } from "../components/OrderBook/OrderBook";
 import { OrderForm } from "../components/OrderForm/OrderForm";
 import { CandleChart } from "../components/Chart/CandleChart";
 import { MarketWatch } from "../components/MarketWatch/MarketWatch";
 import { Portfolio } from "../components/Portfolio/Portfolio";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { useThrottle } from "../hooks/useThrottle";
 import type {
   PlaceOrderResponse,
   PortfolioPosition,
   WsTradeEvent,
+  MarketWatchItem,
 } from "../types/exchange";
 
 /* ---------------------------------------------------------------
@@ -50,25 +53,99 @@ const buildPositions = (
     .filter(([, v]) => v.qty > 0 || v.realizedPnl !== 0)
     .map(([scrip, v]) => {
       const ltp = snapshots[scrip]?.ltp ?? null;
-      // unrealizedPnl: mark-to-market on open qty only
       const unrealizedPnl = ltp != null ? (ltp - v.avgPrice) * v.qty : 0;
-      // totalPnl = unrealized + realized — this is what goes into `pnl`
       const totalPnl = unrealizedPnl + v.realizedPnl;
       return {
         scrip,
         netQty: v.qty,
         avgPrice: v.avgPrice,
         ltp,
-        pnl: parseFloat(totalPnl.toFixed(2)), // Total P&L (unrealized + realized)
-        realizedPnl: parseFloat(v.realizedPnl.toFixed(2)), // Closed-trade profit only
+        pnl: parseFloat(totalPnl.toFixed(2)),
+        realizedPnl: parseFloat(v.realizedPnl.toFixed(2)),
       } satisfies PortfolioPosition;
     });
 };
 
 /* ---------------------------------------------------------------
-   Trade Log Sidebar — collapsible panel (LEFT side)
+   Virtualized Trade Log row — rendered only when visible
 --------------------------------------------------------------- */
-const LOG_WIDTH_OPEN = 360;
+const TRADE_ROW_HEIGHT = 30;
+
+interface TradeRowData {
+  log: WsTradeEvent[];
+  traderId: string;
+}
+
+const TradeRow = memo(
+  ({ index, style, data }: ListChildComponentProps<TradeRowData>) => {
+    const t = data.log[index];
+    if (!t) return null;
+    const myColor =
+      t.buyer_id === data.traderId
+        ? "#3ddc84"
+        : t.seller_id === data.traderId
+          ? "#f05050"
+          : "#888";
+    return (
+      <div
+        style={{
+          ...style,
+          padding: "3px 0",
+          borderBottom: "1px solid #111",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxSizing: "border-box",
+        }}
+      >
+        <div>
+          <span
+            style={{
+              color: "#555",
+              fontSize: 10,
+              marginRight: 8,
+              fontWeight: 600,
+            }}
+          >
+            {t.scrip}
+          </span>
+          <span
+            style={{ color: myColor, fontFamily: "monospace", fontSize: 11 }}
+          >
+            {t.quantity} @ ₹{t.price.toFixed(2)}
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              color: t.buyer_id === data.traderId ? "#3ddc84" : "#444",
+              fontSize: 9,
+              fontFamily: "monospace",
+            }}
+          >
+            {t.buyer_id.replace("bot_", "")}
+          </span>
+          <span style={{ color: "#333", fontSize: 8 }}>←</span>
+          <span
+            style={{
+              color: t.seller_id === data.traderId ? "#f05050" : "#444",
+              fontSize: 9,
+              fontFamily: "monospace",
+            }}
+          >
+            {t.seller_id.replace("bot_", "")}
+          </span>
+        </div>
+      </div>
+    );
+  },
+);
+
+/* ---------------------------------------------------------------
+   Trade Log Sidebar — collapsible panel (LEFT side)
+   Virtualized via react-window; only visible rows rendered.
+--------------------------------------------------------------- */
+const LOG_WIDTH_OPEN   = 360;
 const LOG_WIDTH_CLOSED = 28;
 
 interface TradeLogSidebarProps {
@@ -78,12 +155,31 @@ interface TradeLogSidebarProps {
   onToggle: () => void;
 }
 
-const TradeLogSidebar = ({
+const TradeLogSidebar = memo(function TradeLogSidebar({
   log,
   traderId,
   isOpen,
   onToggle,
-}: TradeLogSidebarProps) => {
+}: TradeLogSidebarProps) {
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(400);
+
+  useEffect(() => {
+    const el = listContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setListHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Stable item data object to avoid itemData prop identity changing every render
+  const itemData = useMemo<TradeRowData>(
+    () => ({ log, traderId }),
+    [log, traderId],
+  );
+
   return (
     <div
       style={{
@@ -98,7 +194,7 @@ const TradeLogSidebar = ({
         position: "relative",
       }}
     >
-      {/* Toggle tab on right edge */}
+      {/* Toggle tab */}
       <button
         onClick={onToggle}
         title={isOpen ? "Collapse log" : "Expand log"}
@@ -177,17 +273,17 @@ const TradeLogSidebar = ({
         )}
       </div>
 
-      {/* Content */}
+      {/* Virtualized content */}
       <div
+        ref={listContainerRef}
         style={{
           flex: 1,
-          overflowY: "auto",
-          padding: isOpen ? "6px 12px" : 0,
+          overflow: "hidden",
           opacity: isOpen ? 1 : 0,
           transition: "opacity 0.15s",
           pointerEvents: isOpen ? "auto" : "none",
-          display: "flex",
-          flexDirection: "column",
+          padding: isOpen ? "6px 12px 6px 10px" : 0,
+          boxSizing: "border-box",
         }}
       >
         {log.length === 0 ? (
@@ -195,71 +291,21 @@ const TradeLogSidebar = ({
             Waiting for trades…
           </div>
         ) : (
-          log.map((t, i) => (
-            <div
-              key={i}
-              style={{
-                padding: "3px 0",
-                borderBottom: "1px solid #111",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    color: "#555",
-                    fontSize: 10,
-                    marginRight: 8,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t.scrip}
-                </span>
-                <span
-                  style={{
-                    color:
-                      t.buyer_id === traderId
-                        ? "#3ddc84"
-                        : t.seller_id === traderId
-                          ? "#f05050"
-                          : "#888",
-                    fontFamily: "monospace",
-                    fontSize: 11,
-                  }}
-                >
-                  {t.quantity} @ ₹{t.price.toFixed(2)}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span
-                  style={{
-                    color: t.buyer_id === traderId ? "#3ddc84" : "#444",
-                    fontSize: 9,
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {t.buyer_id.replace("bot_", "")}
-                </span>
-                <span style={{ color: "#333", fontSize: 8 }}>←</span>
-                <span
-                  style={{
-                    color: t.seller_id === traderId ? "#f05050" : "#444",
-                    fontSize: 9,
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {t.seller_id.replace("bot_", "")}
-                </span>
-              </div>
-            </div>
-          ))
+          <FixedSizeList
+            height={listHeight}
+            itemCount={log.length}
+            itemSize={TRADE_ROW_HEIGHT}
+            width="100%"
+            itemData={itemData}
+            overscanCount={5}
+          >
+            {TradeRow}
+          </FixedSizeList>
         )}
       </div>
     </div>
   );
-};
+});
 
 /* ---------------------------------------------------------------
    Terminal page
@@ -267,16 +313,23 @@ const TradeLogSidebar = ({
      ├── Left column  [top bar · market watch · workspace · portfolio]
      └── Right column [market depth — full 100vh, no toggle]
 --------------------------------------------------------------- */
-const TRADER_ID = "trader_human";
+const TRADER_ID  = "trader_human";
 const DEPTH_WIDTH = 280;
 
 export const Terminal = () => {
   const [activeScrip, setActiveScrip] = useState("RELIANCE");
-  const [fills, setFills] = useState<FillEntry[]>([]);
-  const [logOpen, setLogOpen] = useState(true);
-  const [scripMetadata, setScripMetadata] = useState<Record<string, { sector: string, lot_size: number, tick_size: number }>>({});
+  const [fills, setFills]             = useState<FillEntry[]>([]);
+  const [logOpen, setLogOpen]         = useState(true);
+  const [scripMetadata, setScripMetadata] = useState<
+    Record<string, { sector: string; lot_size: number; tick_size: number }>
+  >({});
 
-  const { snapshots, tradeEvents, candleEvents, marketWatch, connected, subscribeScrip } = useWebSocket();
+  const { snapshots, tradeEvents, candleEvents, marketWatch, connected, subscribeScrip } =
+    useWebSocket();
+
+  // Throttle the market-watch map to 2 fps before passing to MarketWatch.
+  // Sub-100ms LTP flicker has no user value and defeats React.memo.
+  const throttledMarketWatch = useThrottle<Record<string, MarketWatchItem>>(marketWatch, 2);
 
   // Notify engine whenever the user switches scrip — routes depth/candle to this client
   useEffect(() => {
@@ -284,14 +337,21 @@ export const Terminal = () => {
   }, [activeScrip, subscribeScrip]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/scrips')
-      .then(res => res.json())
-      .then(data => setScripMetadata(data))
-      .catch(err => console.error("Failed to load scrip metadata", err));
+    fetch("http://localhost:8000/scrips")
+      .then((res) => res.json())
+      .then((data) => setScripMetadata(data))
+      .catch((err) => console.error("Failed to load scrip metadata", err));
   }, []);
 
-  const log: WsTradeEvent[] = tradeEvents.slice(0, 40);
-  const positions = buildPositions(fills, snapshots);
+  // Cap trade log at 100 entries (already capped in the hook, but slice for display)
+  const log: WsTradeEvent[] = tradeEvents.slice(0, 100);
+
+  // Memoize positions so Portfolio only re-renders when fills or LTPs actually change
+  const positions = useMemo(
+    () => buildPositions(fills, snapshots),
+    [fills, snapshots],
+  );
+
   const processedTradeIds = useRef(new Set<string>());
 
   useEffect(() => {
@@ -300,20 +360,10 @@ export const Terminal = () => {
       if (!processedTradeIds.current.has(t.trade_id)) {
         processedTradeIds.current.add(t.trade_id);
         if (t.buyer_id === TRADER_ID) {
-          newFills.push({
-            scrip: t.scrip,
-            side: "BUY",
-            qty: t.quantity,
-            price: t.price,
-          });
+          newFills.push({ scrip: t.scrip, side: "BUY",  qty: t.quantity, price: t.price });
         }
         if (t.seller_id === TRADER_ID) {
-          newFills.push({
-            scrip: t.scrip,
-            side: "SELL",
-            qty: t.quantity,
-            price: t.price,
-          });
+          newFills.push({ scrip: t.scrip, side: "SELL", qty: t.quantity, price: t.price });
         }
       }
     }
@@ -386,16 +436,20 @@ export const Terminal = () => {
             {connected ? "● LIVE" : "○ DISCONNECTED"}
           </span>
           <span style={{ marginLeft: "auto", color: "#333", fontSize: 10 }}>
-            v0.2.0 · NSE Simulator
+            v0.3.0 · NSE Simulator
           </span>
         </div>
 
-        {/* Market watch */}
-        <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} liveData={marketWatch} />
+        {/* Market watch — receives throttled LTP diffs (2 fps max) */}
+        <MarketWatch
+          activeScrip={activeScrip}
+          onSelect={setActiveScrip}
+          liveData={throttledMarketWatch}
+        />
 
         {/* Main workspace */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          {/* Trade log sidebar — LEFT */}
+          {/* Trade log sidebar — LEFT — virtualized */}
           <TradeLogSidebar
             log={log}
             traderId={TRADER_ID}
@@ -440,12 +494,10 @@ export const Terminal = () => {
       <div
         style={{
           width: DEPTH_WIDTH,
-          // flexShrink: 0,
           borderLeft: "1px solid #1a1a1a",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          // background: "#080808",
           height: "100vh",
         }}
       >
@@ -469,6 +521,7 @@ export const Terminal = () => {
             onTraded={(res, side) => handleTraded(res, activeScrip, side)}
           />
         </div>
+
         {/* Header aligned with top bar height */}
         <div
           style={{
@@ -495,7 +548,7 @@ export const Terminal = () => {
           <span style={{ color: "#2a2a2a", fontSize: 10 }}>{activeScrip}</span>
         </div>
 
-        {/* OrderBook — fills all remaining height down to the very bottom */}
+        {/* OrderBook — fills all remaining height */}
         <div style={{ flex: 1, overflow: "hidden", height: "100%" }}>
           <OrderBook scrip={activeScrip} snapshot={activeSnapshot} />
         </div>

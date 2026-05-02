@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { OrderBookSnapshot, OrderBookLevel } from "../../types/exchange";
 import styles from "./OrderBook.module.css";
 
@@ -11,7 +11,7 @@ interface Props {
 const ROW_HEIGHT = 24; // matching .row height in CSS
 const FIXED_HEIGHT = 120; // total height of header + labels + spread + padding
 
-export function OrderBook({ scrip, snapshot, maxRows = 20 }: Props) {
+export const OrderBook = memo(function OrderBook({ scrip, snapshot, maxRows = 20 }: Props) {
   const [book, setBook] = useState<OrderBookSnapshot | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [rowCount, setRowCount] = useState(8);
@@ -100,9 +100,9 @@ export function OrderBook({ scrip, snapshot, maxRows = 20 }: Props) {
       </div>
     </div>
   );
-}
+});
 
-function BookRow({
+const BookRow = memo(function BookRow({
   level,
   side,
   maxQty,
@@ -120,4 +120,4 @@ function BookRow({
       <span className={styles.orders}>{level.orders}</span>
     </div>
   );
-}
+});

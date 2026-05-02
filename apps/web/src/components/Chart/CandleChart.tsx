@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import {
   createChart,
   CandlestickSeries,
@@ -41,7 +41,7 @@ function calculateEMA(data: CandleBar[], period: number): LineData[] {
   return emaData;
 }
 
-export const CandleChart = ({ scrip, candleEvents, position }: Props) => {
+export const CandleChart = memo(function CandleChart({ scrip, candleEvents, position }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
   
@@ -278,4 +278,4 @@ export const CandleChart = ({ scrip, candleEvents, position }: Props) => {
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );
-};
+});
