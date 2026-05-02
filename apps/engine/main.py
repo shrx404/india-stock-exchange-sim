@@ -11,6 +11,7 @@ from core.matcher import Matcher
 from simulation.agents import MarketMakerBot, RetailBot, AgentConfig, MomentumBot, MeanReversionBot, EnvironmentBot
 from db.session import init_db, get_session
 from db.models import OrderRecord, TradeRecord
+import config
 
 from core.trade_store import TradeStore
 from core.analytics import Analytics
@@ -339,6 +340,10 @@ class SessionStateRequest(BaseModel):
     state: str
 
 
+class SimSpeedRequest(BaseModel):
+    multiplier: float
+
+
 # ------------------------------------------------------------------
 # REST routes
 # ------------------------------------------------------------------
@@ -496,8 +501,15 @@ def get_init_snapshot(scrip: str):
     return {
         "marketWatch": _get_market_watch(),
         "depth":       matcher.get_depth(scrip_up, levels=8),
-        "candles":     candle_aggregator.get_candles(scrip_up)[-100:]
+        "candles":     candle_aggregator.get_candles(scrip_up)[-100:],
+        "simSpeed":    config.SIM_SPEED_MULTIPLIER
     }
+
+
+@app.post("/admin/sim-speed")
+def set_sim_speed(req: SimSpeedRequest):
+    config.SIM_SPEED_MULTIPLIER = req.multiplier
+    return {"status": "success", "multiplier": config.SIM_SPEED_MULTIPLIER}
 
 
 @app.post("/admin/session/{scrip}")

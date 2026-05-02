@@ -24,6 +24,7 @@ from core.matcher import Matcher
 from core.trade_store import TradeStore
 from core.analytics import Analytics
 from simulation.price_feed import SEED_PRICES
+import config
 
 START_TIME = time.time()
 
@@ -81,7 +82,7 @@ class BaseAgent:
     async def place_order(self, order: Order):
         # Apply reaction delay
         if self.config.reaction_delay > 0:
-            await asyncio.sleep(self.config.reaction_delay)
+            await asyncio.sleep(self.config.reaction_delay / config.SIM_SPEED_MULTIPLIER)
         
         order.trader_id = self.agent_id
         trades = self._matcher.place_order(order)
@@ -138,7 +139,7 @@ class MarketMakerBot(BaseAgent):
 
     async def step(self):
         vm = get_volume_multiplier()
-        await asyncio.sleep(self._interval / vm)
+        await asyncio.sleep((self._interval / vm) / config.SIM_SPEED_MULTIPLIER)
         for scrip in self.config.preferred_scrips:
             # Cancel previous resting quotes directly (faster than going through agent delay)
             for oid in self._my_orders[scrip]:
@@ -202,7 +203,7 @@ class RetailBot(BaseAgent):
 
     async def step(self):
         vm = get_volume_multiplier()
-        await asyncio.sleep((self._interval + random.uniform(-0.5, 0.5)) / vm)
+        await asyncio.sleep(((self._interval + random.uniform(-0.5, 0.5)) / vm) / config.SIM_SPEED_MULTIPLIER)
         scrip = random.choice(self.config.preferred_scrips)
         side  = random.choice([Side.BUY, Side.SELL])
         mid   = _mid(self._matcher, scrip)
@@ -242,7 +243,7 @@ class MomentumBot(BaseAgent):
 
     async def step(self):
         vm = get_volume_multiplier()
-        await asyncio.sleep(self._interval / vm)
+        await asyncio.sleep((self._interval / vm) / config.SIM_SPEED_MULTIPLIER)
         now = time.time()
         for scrip in self.config.preferred_scrips:
             if now < self._cooldown_until.get(scrip, 0):
@@ -288,7 +289,7 @@ class MeanReversionBot(BaseAgent):
 
     async def step(self):
         vm = get_volume_multiplier()
-        await asyncio.sleep(self._interval / vm)
+        await asyncio.sleep((self._interval / vm) / config.SIM_SPEED_MULTIPLIER)
         for scrip in self.config.preferred_scrips:
             vwap = self._analytics.get_vwap(scrip, limit=100)
             mid = _mid(self._matcher, scrip)
@@ -339,7 +340,7 @@ class EnvironmentBot(BaseAgent):
         }
 
     async def step(self):
-        await asyncio.sleep(self._interval)
+        await asyncio.sleep(self._interval / config.SIM_SPEED_MULTIPLIER)
         
         for scrip in self.config.preferred_scrips:
             mid = _mid(self._matcher, scrip)
@@ -361,7 +362,7 @@ class EnvironmentBot(BaseAgent):
                         scrip=scrip, side=side, order_type=OrderType.MARKET,
                         quantity=qty + random.randint(10, 50), price=0.0, trader_id=self.agent_id
                     ))
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.1 / config.SIM_SPEED_MULTIPLIER)
 
             # Subtask 1.7 - Correlated Scrip Moves (> 0.5% move)
             elif abs(change) >= 0.005:

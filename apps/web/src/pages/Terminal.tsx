@@ -324,6 +324,7 @@ export const Terminal = () => {
   const [fills, setFills]             = useState<FillEntry[]>([]);
   const [logOpen, setLogOpen]         = useState(true);
   const [footerTab, setFooterTab]     = useState<'portfolio' | 'orders'>('portfolio');
+  const [simSpeed, setSimSpeed]       = useState<number>(1);
   const [scripMetadata, setScripMetadata] = useState<
     Record<string, { sector: string; lot_size: number; tick_size: number }>
   >({});
@@ -351,7 +352,10 @@ export const Terminal = () => {
     // This seeds the market watch, depth, and last 100 candles in one request
     fetch(`http://localhost:8000/api/snapshot/init?scrip=${activeScrip}`)
       .then((res) => res.json())
-      .then((data) => seed(data))
+      .then((data) => {
+        seed(data);
+        if (data.simSpeed) setSimSpeed(data.simSpeed);
+      })
       .catch((err) => console.error("Failed to load init snapshot", err));
   }, [seed]); // Only on mount (activeScrip is static RELIANCE for now, or seeds once)
 
@@ -447,7 +451,37 @@ export const Terminal = () => {
           >
             {connected ? "● LIVE" : "○ DISCONNECTED"}
           </span>
-          <span style={{ marginLeft: "auto", color: "#333", fontSize: 10 }}>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ color: "#555", fontSize: 9, marginRight: 4, fontWeight: 600, letterSpacing: 1 }}>SPEED</span>
+            {[1, 5, 10, 30, 50].map(speed => (
+              <button
+                key={speed}
+                onClick={() => {
+                  fetch("http://localhost:8000/admin/sim-speed", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ multiplier: speed })
+                  }).then(res => res.json())
+                    .then(data => {
+                      if (data.status === "success") setSimSpeed(data.multiplier);
+                    });
+                }}
+                style={{
+                  background: simSpeed === speed ? "#f0c040" : "#111",
+                  color: simSpeed === speed ? "#000" : "#666",
+                  border: "1px solid #222",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+          <span style={{ color: "#333", fontSize: 10, marginLeft: 16 }}>
             v0.3.0 · NSE Simulator
           </span>
         </div>

@@ -24,6 +24,7 @@ The exchange is populated by highly tuned, asynchronous trading bots that genera
 - **Momentum Agents:** Trend-following algorithms that detect short-term price breakouts and pile in to ride the momentum.
 - **Mean Reversion Agents:** Intelligent algorithms that track real-time VWAP deviations to identify over-extended prices and fade the trend.
 - **Macro Dynamics:** The simulator includes logic for **Panic/Greed cascades** (where 1% moves trigger market flooding) and **Correlated Scrip Moves** (where IT or Banking peers are nudged by sectoral momentum).
+- **Simulation Speed Control:** Dynamically toggle the engine speed from 1x up to 50x to stress test liquidity and generate rapid historical data.
 
 ### 📈 Real Market Data & Scale
 - **NIFTY 50 Universe:** Fully configured to trade all 50 constituent stocks of the NIFTY 50 index (RELIANCE, TCS, HDFCBANK, etc.) with accurate lot sizes and tick sizes (₹0.05).
@@ -172,7 +173,7 @@ india-exchange-sim/
 - [x] **Phase 3: UI Redesign** - Master-detail trading terminal, grid architecture, TradingView integration with technical overlays (EMA/VWAP).
 - [x] **Phase 4: Real Data & NIFTY 50** - Scaled the engine to actively trade all 50 constituent scrips of the NIFTY 50, seeded with historical EOD data from Yahoo Finance.
 - [x] **Phase 5: Performance Optimization** - Server-side WebSocket broadcast buffering, per-scrip topic routing, and diff-only LTP heartbeats for a high-performance React UI.
-- [ ] **Phase 6: Frontend Polish & Replay** - Corporate action handling (splits/dividends), chronological market depth timeline scrubbers, simulation speed controls (1x/5x/10x), and end-of-day summary reports.
+- [ ] **Phase 6: Frontend Polish & Replay** - Corporate action handling (splits/dividends), chronological market depth timeline scrubbers, simulation speed controls (1x/5x/10x/30x/50x), and end-of-day summary reports.
 ---
 
 ## 📜 License

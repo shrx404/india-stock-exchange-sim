@@ -21,6 +21,7 @@ HOST         = os.getenv("HOST", "0.0.0.0")
 PORT         = int(os.getenv("PORT", 8000))
 
 MARKET = MarketConfig()
+SIM_SPEED_MULTIPLIER = 1.0
 
 # Quick sanity check
 if __name__ == "__main__":
