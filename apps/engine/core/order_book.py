@@ -74,7 +74,7 @@ class OrderBook:
             return self._asks[0][0]
         return None
 
-    def get_depth(self, levels: int = 5) -> dict:
+    def get_depth(self, levels: int = 8) -> dict:
         bids = self._aggregate_side(self._bids, is_bid=True,  levels=levels)
         asks = self._aggregate_side(self._asks, is_bid=False, levels=levels)
         return {

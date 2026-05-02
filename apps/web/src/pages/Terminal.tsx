@@ -25,7 +25,6 @@ const buildPositions = (
   fills: FillEntry[],
   snapshots: Record<string, { ltp: number | null }>,
 ): PortfolioPosition[] => {
-  // Track qty, average price, and realized profit separately
   const map: Record<
     string,
     { qty: number; avgPrice: number; realizedPnl: number }
@@ -36,65 +35,250 @@ const buildPositions = (
     const pos = map[f.scrip];
 
     if (f.side === "BUY") {
-      // Standard moving average calculation
       const totalCost = pos.qty * pos.avgPrice + f.qty * f.price;
       pos.qty += f.qty;
       pos.avgPrice = totalCost / pos.qty;
     } else if (f.side === "SELL") {
-      // Calculate locked-in profit
       const profit = (f.price - pos.avgPrice) * f.qty;
       pos.realizedPnl += profit;
       pos.qty -= f.qty;
-
-      // Safety reset if quantity hits 0
-      if (pos.qty === 0) {
-        pos.avgPrice = 0;
-      }
+      if (pos.qty === 0) pos.avgPrice = 0;
     }
   }
 
+  return Object.entries(map)
+    .filter(([, v]) => v.qty > 0 || v.realizedPnl !== 0)
+    .map(([scrip, v]) => {
+      const ltp = snapshots[scrip]?.ltp ?? null;
+      // unrealizedPnl: mark-to-market on open qty only
+      const unrealizedPnl = ltp != null ? (ltp - v.avgPrice) * v.qty : 0;
+      // totalPnl = unrealized + realized — this is what goes into `pnl`
+      const totalPnl = unrealizedPnl + v.realizedPnl;
+      return {
+        scrip,
+        netQty: v.qty,
+        avgPrice: v.avgPrice,
+        ltp,
+        pnl: parseFloat(totalPnl.toFixed(2)), // Total P&L (unrealized + realized)
+        realizedPnl: parseFloat(v.realizedPnl.toFixed(2)), // Closed-trade profit only
+      } satisfies PortfolioPosition;
+    });
+};
+
+/* ---------------------------------------------------------------
+   Trade Log Sidebar — collapsible panel (LEFT side)
+--------------------------------------------------------------- */
+const LOG_WIDTH_OPEN = 360;
+const LOG_WIDTH_CLOSED = 28;
+
+interface TradeLogSidebarProps {
+  log: WsTradeEvent[];
+  traderId: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+const TradeLogSidebar = ({
+  log,
+  traderId,
+  isOpen,
+  onToggle,
+}: TradeLogSidebarProps) => {
   return (
-    Object.entries(map)
-      // Keep positions if you hold shares OR if you made/lost locked-in money on them
-      .filter(([, v]) => v.qty > 0 || v.realizedPnl !== 0)
-      .map(([scrip, v]) => {
-        const ltp = snapshots[scrip]?.ltp ?? null;
+    <div
+      style={{
+        width: isOpen ? LOG_WIDTH_OPEN : LOG_WIDTH_CLOSED,
+        flexShrink: 0,
+        borderRight: "1px solid #1a1a1a",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        background: "#080808",
+        transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        position: "relative",
+      }}
+    >
+      {/* Toggle tab on right edge */}
+      <button
+        onClick={onToggle}
+        title={isOpen ? "Collapse log" : "Expand log"}
+        style={{
+          position: "absolute",
+          top: "50%",
+          right: 0,
+          transform: "translateY(-50%)",
+          zIndex: 10,
+          width: 14,
+          height: 48,
+          background: "#1a1a1a",
+          border: "none",
+          borderLeft: "1px solid #2a2a2a",
+          borderRadius: "3px 0 0 3px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+          color: "#555",
+          fontSize: 8,
+          transition: "background 0.15s, color 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "#252525";
+          (e.currentTarget as HTMLButtonElement).style.color = "#888";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "#1a1a1a";
+          (e.currentTarget as HTMLButtonElement).style.color = "#555";
+        }}
+      >
+        {isOpen ? "‹" : "›"}
+      </button>
 
-        // Unrealized PNL is ONLY calculated on the shares you still own
-        const unrealizedPnl = ltp != null ? (ltp - v.avgPrice) * v.qty : 0;
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: isOpen ? "8px 12px 8px 10px" : "8px 0",
+          borderBottom: "1px solid #1a1a1a",
+          flexShrink: 0,
+          minHeight: 34,
+          justifyContent: isOpen ? "flex-start" : "center",
+          overflow: "hidden",
+        }}
+      >
+        {isOpen ? (
+          <span
+            style={{
+              color: "#444",
+              fontSize: 10,
+              letterSpacing: 1,
+              fontWeight: 600,
+            }}
+          >
+            TRADE LOG
+          </span>
+        ) : (
+          <span
+            style={{
+              color: "#333",
+              fontSize: 9,
+              letterSpacing: 2,
+              fontWeight: 600,
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              transform: "rotate(180deg)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            TRADE LOG
+          </span>
+        )}
+      </div>
 
-        // Total PNL = Paper Profit (Unrealized) + Locked Profit (Realized)
-        const totalPnl = unrealizedPnl + v.realizedPnl;
-
-        return {
-          scrip,
-          netQty: v.qty,
-          avgPrice: v.avgPrice,
-          ltp,
-          pnl: parseFloat(totalPnl.toFixed(2)),
-          realizedPnl: parseFloat(v.realizedPnl.toFixed(2)), // Pass this to the UI!
-        };
-      })
+      {/* Content */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: isOpen ? "6px 12px" : 0,
+          opacity: isOpen ? 1 : 0,
+          transition: "opacity 0.15s",
+          pointerEvents: isOpen ? "auto" : "none",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {log.length === 0 ? (
+          <div style={{ color: "#222", fontSize: 11, paddingTop: 8 }}>
+            Waiting for trades…
+          </div>
+        ) : (
+          log.map((t, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "3px 0",
+                borderBottom: "1px solid #111",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    color: "#555",
+                    fontSize: 10,
+                    marginRight: 8,
+                    fontWeight: 600,
+                  }}
+                >
+                  {t.scrip}
+                </span>
+                <span
+                  style={{
+                    color:
+                      t.buyer_id === traderId
+                        ? "#3ddc84"
+                        : t.seller_id === traderId
+                          ? "#f05050"
+                          : "#888",
+                    fontFamily: "monospace",
+                    fontSize: 11,
+                  }}
+                >
+                  {t.quantity} @ ₹{t.price.toFixed(2)}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    color: t.buyer_id === traderId ? "#3ddc84" : "#444",
+                    fontSize: 9,
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {t.buyer_id.replace("bot_", "")}
+                </span>
+                <span style={{ color: "#333", fontSize: 8 }}>←</span>
+                <span
+                  style={{
+                    color: t.seller_id === traderId ? "#f05050" : "#444",
+                    fontSize: 9,
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {t.seller_id.replace("bot_", "")}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 
 /* ---------------------------------------------------------------
    Terminal page
+   Layout (horizontal root flex):
+     ├── Left column  [top bar · market watch · workspace · portfolio]
+     └── Right column [market depth — full 100vh, no toggle]
 --------------------------------------------------------------- */
 const TRADER_ID = "trader_human";
+const DEPTH_WIDTH = 280;
 
 export const Terminal = () => {
   const [activeScrip, setActiveScrip] = useState("RELIANCE");
   const [fills, setFills] = useState<FillEntry[]>([]);
+  const [logOpen, setLogOpen] = useState(true);
 
   const { snapshots, tradeEvents, candleEvents, connected } = useWebSocket();
 
-  // Build trade log from WS trade events (bot + human trades)
   const log: WsTradeEvent[] = tradeEvents.slice(0, 40);
-
-  // Compute positions from human fills
   const positions = buildPositions(fills, snapshots);
-
   const processedTradeIds = useRef(new Set<string>());
 
   useEffect(() => {
@@ -120,15 +304,12 @@ export const Terminal = () => {
         }
       }
     }
-    if (newFills.length > 0) {
-      setFills((prev) => [...prev, ...newFills]);
-    }
+    if (newFills.length > 0) setFills((prev) => [...prev, ...newFills]);
   }, [tradeEvents]);
 
   const handleTraded = useCallback(
-    (res: PlaceOrderResponse, scrip: string, side: "BUY" | "SELL") => {
-      // Trades are now handled entirely via the WebSocket event stream.
-      // This ensures that limit orders filled later also update the portfolio.
+    (_res: PlaceOrderResponse, _scrip: string, _side: "BUY" | "SELL") => {
+      // Handled via WebSocket event stream
     },
     [],
   );
@@ -136,171 +317,172 @@ export const Terminal = () => {
   const activeSnapshot = snapshots[activeScrip] ?? null;
 
   return (
+    /* Root: horizontal flex — left content column + right depth column */
     <div
       style={{
         display: "flex",
-        flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
         background: "#0a0a0a",
       }}
     >
-      {/* ── Top bar: logo + WS status ────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════
+          LEFT COLUMN — everything except depth
+      ══════════════════════════════════════════════════════ */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "8px 16px",
-          borderBottom: "1px solid #1a1a1a",
-          background: "#060606",
-          flexShrink: 0,
+          flexDirection: "column",
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
         }}
       >
-        <span
-          style={{
-            color: "#f0c040",
-            fontWeight: 800,
-            fontSize: 13,
-            letterSpacing: 1,
-          }}
-        >
-          🇮🇳 INDIA EXCHANGE SIM
-        </span>
-        <span
-          style={{
-            fontSize: 9,
-            padding: "2px 8px",
-            borderRadius: 10,
-            background: connected ? "#0d1f15" : "#1f0d0d",
-            color: connected ? "#3ddc84" : "#f05050",
-            letterSpacing: 0.5,
-          }}
-        >
-          {connected ? "● LIVE" : "○ DISCONNECTED"}
-        </span>
-        <span style={{ marginLeft: "auto", color: "#333", fontSize: 10 }}>
-          v0.2.0 · NSE Simulator
-        </span>
-      </div>
-
-      {/* ── Market watch scrip tabs ──────────────────────────── */}
-      <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} />
-
-      {/* ── Main workspace ──────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left/Center column: chart */}
+        {/* Top bar */}
         <div
           style={{
-            flex: 1,
             display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-            borderRight: "1px solid #1a1a1a"
+            alignItems: "center",
+            gap: 10,
+            padding: "8px 16px",
+            borderBottom: "1px solid #1a1a1a",
+            background: "#060606",
+            flexShrink: 0,
           }}
         >
-          <CandleChart 
-            scrip={activeScrip} 
-            candleEvents={candleEvents} 
-            position={positions.find(p => p.scrip === activeScrip)} 
-          />
+          <span
+            style={{
+              color: "#f0c040",
+              fontWeight: 800,
+              fontSize: 13,
+              letterSpacing: 1,
+            }}
+          >
+            🇮🇳 INDIA EXCHANGE SIM
+          </span>
+          <span
+            style={{
+              fontSize: 9,
+              padding: "2px 8px",
+              borderRadius: 10,
+              background: connected ? "#0d1f15" : "#1f0d0d",
+              color: connected ? "#3ddc84" : "#f05050",
+              letterSpacing: 0.5,
+            }}
+          >
+            {connected ? "● LIVE" : "○ DISCONNECTED"}
+          </span>
+          <span style={{ marginLeft: "auto", color: "#333", fontSize: 10 }}>
+            v0.2.0 · NSE Simulator
+          </span>
         </div>
 
-        {/* Right column: order book + order form */}
+        {/* Market watch */}
+        <MarketWatch activeScrip={activeScrip} onSelect={setActiveScrip} />
+
+        {/* Main workspace */}
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          {/* Trade log sidebar — LEFT */}
+          <TradeLogSidebar
+            log={log}
+            traderId={TRADER_ID}
+            isOpen={logOpen}
+            onToggle={() => setLogOpen((v) => !v)}
+          />
+
+          {/* Chart — CENTER */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              minWidth: 0,
+              borderRight: "1px solid #1a1a1a",
+            }}
+          >
+            <CandleChart
+              scrip={activeScrip}
+              candleEvents={candleEvents}
+              position={positions.find((p) => p.scrip === activeScrip)}
+            />
+          </div>
+        </div>
+
+        {/* Portfolio footer */}
         <div
           style={{
-            width: 320,
+            height: 200,
+            flexShrink: 0,
+            borderTop: "1px solid #1a1a1a",
+            overflow: "hidden",
+          }}
+        >
+          <Portfolio positions={positions} />
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════
+          RIGHT COLUMN — Market Depth, full 100vh, no toggle
+      ══════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          width: DEPTH_WIDTH,
+          // flexShrink: 0,
+          borderLeft: "1px solid #1a1a1a",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          // background: "#080808",
+          height: "100vh",
+        }}
+      >
+        {/* Order form */}
+        <div
+          style={{
+            width: 260,
             flexShrink: 0,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            background: "#0a0a0a"
+            background: "#0a0a0a",
+            borderLeft: "1px solid #1a1a1a",
           }}
         >
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <OrderBook scrip={activeScrip} snapshot={activeSnapshot} />
-          </div>
-          <div
-            style={{
-              flexShrink: 0,
-              borderTop: "1px solid #1a1a1a",
-            }}
-          >
-            <OrderForm
-              scrip={activeScrip}
-              sessionState={activeSnapshot?.session_state || "OPEN"}
-              onTraded={(res, side) => handleTraded(res, activeScrip, side)}
-            />
-          </div>
+          <OrderForm
+            scrip={activeScrip}
+            sessionState={activeSnapshot?.session_state || "OPEN"}
+            onTraded={(res, side) => handleTraded(res, activeScrip, side)}
+          />
         </div>
-      </div>
-
-      {/* ── Footer Block ──────────────────────────── */}
-      <div style={{ height: 200, flexShrink: 0, display: "flex", borderTop: "1px solid #1a1a1a", overflow: "hidden" }}>
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          <Portfolio positions={positions} />
-        </div>
-        
-        {/* Right column: trade log */}
+        {/* Header aligned with top bar height */}
         <div
           style={{
-            width: 400,
-            flexShrink: 0,
-            borderLeft: "1px solid #1a1a1a",
-            overflowY: "auto",
-            padding: "10px 12px",
-            background: "#0a0a0a",
             display: "flex",
-            flexDirection: "column",
-            gap: 0,
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 12px",
+            borderBottom: "1px solid #1a1a1a",
+            flexShrink: 0,
+            minHeight: 34,
+            background: "#060606",
           }}
         >
-          <div
+          <span
             style={{
               color: "#444",
               fontSize: 10,
               letterSpacing: 1,
-              marginBottom: 8,
+              fontWeight: 600,
             }}
           >
-            TRADE LOG
-          </div>
-          {log.length === 0 ? (
-            <div style={{ color: "#222", fontSize: 11 }}>
-              Waiting for trades…
-            </div>
-          ) : (
-            log.map((t, i) => (
-              <div
-                key={i}
-                style={{
-                  padding: "3px 0",
-                  borderBottom: "1px solid #111",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}
-              >
-                <div>
-                  <span style={{ color: "#555", fontSize: 10, marginRight: 8, fontWeight: 600 }}>
-                    {t.scrip}
-                  </span>
-                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : t.seller_id === TRADER_ID ? "#f05050" : "#888", fontFamily: "monospace", fontSize: 11 }}>
-                    {t.quantity} @ ₹{t.price.toFixed(2)}
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: t.buyer_id === TRADER_ID ? "#3ddc84" : "#444", fontSize: 9, fontFamily: "monospace" }}>
-                    {t.buyer_id.replace("bot_", "")}
-                  </span>
-                  <span style={{ color: "#333", fontSize: 8 }}>←</span>
-                  <span style={{ color: t.seller_id === TRADER_ID ? "#f05050" : "#444", fontSize: 9, fontFamily: "monospace" }}>
-                    {t.seller_id.replace("bot_", "")}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
+            MARKET DEPTH
+          </span>
+          <span style={{ color: "#2a2a2a", fontSize: 10 }}>{activeScrip}</span>
+        </div>
+
+        {/* OrderBook — fills all remaining height down to the very bottom */}
+        <div style={{ flex: 1, overflow: "hidden", height: "100%" }}>
+          <OrderBook scrip={activeScrip} snapshot={activeSnapshot} />
         </div>
       </div>
     </div>

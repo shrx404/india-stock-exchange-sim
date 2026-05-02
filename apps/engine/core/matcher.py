@@ -61,10 +61,18 @@ class Matcher:
             return False
         return book.cancel_order(order_id)
 
-    def get_depth(self, scrip: str, levels: int = 5) -> dict:
+    def get_depth(self, scrip: str, levels: int = 8) -> dict:
         book = self._books.get(scrip)
         if not book:
-            return {"scrip": scrip, "ltp": None, "bids": [], "asks": []}
+            from .market_session import SessionState
+            return {
+                "scrip": scrip,
+                "ltp": None,
+                "bids": [],
+                "asks": [],
+                "session_state": SessionState.OPEN.value,
+                "prev_close": SEED_PRICES.get(scrip, 0.0)
+            }
         return book.get_depth(levels)
 
     def get_ltp(self, scrip: str) -> float | None:

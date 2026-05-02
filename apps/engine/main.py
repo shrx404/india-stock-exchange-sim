@@ -54,7 +54,7 @@ async def record_market_depth_task(interval: float = 30.0):
         try:
             snapshots = []
             for scrip in matcher.active_scrips:
-                depth = matcher.get_depth(scrip, levels=5)
+                depth = matcher.get_depth(scrip, levels=8)
                 # Only save if there's actually something in the book
                 if depth["bids"] or depth["asks"]:
                     snapshots.append({
@@ -257,7 +257,7 @@ def cancel_order(req: CancelOrderRequest):
 
 
 @app.get("/depth/{scrip}")
-def get_depth(scrip: str, levels: int = 5):
+def get_depth(scrip: str, levels: int = 8):
     return matcher.get_depth(scrip.upper(), levels)
 
 
@@ -277,15 +277,20 @@ def market_watch():
     from simulation.price_feed import SEED_PRICES
     result = []
     for scrip in ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]:
-        ltp  = matcher.get_ltp(scrip)
-        seed = SEED_PRICES.get(scrip, 0)
+        depth = matcher.get_depth(scrip)
+        ltp   = depth.get("ltp")
+        seed  = depth.get("prev_close", 0)
+        
+        change = round(ltp - seed, 2) if ltp is not None and seed > 0 else 0
+        pct    = round((ltp - seed) / seed * 100, 2) if ltp is not None and seed > 0 else 0.0
+        
         result.append({
             "scrip"    : scrip,
             "ltp"      : ltp,
             "seed"     : seed,
-            "change"   : round(ltp - seed, 2) if ltp else 0,
-            "changePct": round((ltp - seed) / seed * 100, 2) if ltp else 0.0,
-            "session_state": matcher.get_depth(scrip)["session_state"]
+            "change"   : change,
+            "changePct": pct,
+            "session_state": depth.get("session_state", "OPEN")
         })
     return result
 

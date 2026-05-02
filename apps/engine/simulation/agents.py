@@ -127,7 +127,7 @@ class MarketMakerBot(BaseAgent):
         self._last_mid: dict[str, float] = {}
 
         # Base config for ladders
-        self.mm_levels = 5
+        self.mm_levels = 8
         self.base_tick = 1.00
 
     async def step(self):
