@@ -44,8 +44,10 @@ def get_volume_multiplier() -> float:
         return 2.0
     return 1.0
 
-# Active scrips the bots trade (subset of SEED_PRICES)
-BOT_SCRIPS = ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]
+from core.scrip_metadata import SCRIP_METADATA
+
+# Active scrips the bots trade (all 50 Nifty scrips)
+BOT_SCRIPS = list(SCRIP_METADATA.keys())
 
 def _mid(matcher: Matcher, scrip: str) -> float:
     """Return LTP if available, else fall back to seed price."""

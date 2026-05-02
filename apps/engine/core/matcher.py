@@ -20,7 +20,7 @@ class Matcher:
 
     def get_or_create_book(self, scrip: str) -> OrderBook:
         if scrip not in self._books:
-            prev_close = SEED_PRICES.get(scrip, 100.0)
+            prev_close = SEED_PRICES.get(scrip, 1000.0)
             self._books[scrip] = OrderBook(scrip, prev_close=prev_close)
         return self._books[scrip]
 

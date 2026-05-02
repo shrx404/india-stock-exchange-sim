@@ -16,6 +16,7 @@ from db.models import OrderRecord, TradeRecord
 from core.trade_store import TradeStore
 from core.analytics import Analytics
 from core.candle_aggregator import CandleAggregator
+from simulation.price_feed import load_base_prices_from_db
 
 # ------------------------------------------------------------------
 # State
@@ -87,6 +88,9 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         print("[DB] tables ready")
+        
+        # Load historical base prices for agents
+        await load_base_prices_from_db()
     except Exception as e:
         print(f"[DB] skipped (no DB?): {e}")
 
@@ -256,6 +260,11 @@ def cancel_order(req: CancelOrderRequest):
     return {"cancelled": req.order_id}
 
 
+@app.get("/scrips")
+def get_scrips():
+    from core.scrip_metadata import SCRIP_METADATA
+    return SCRIP_METADATA
+
 @app.get("/depth/{scrip}")
 def get_depth(scrip: str, levels: int = 8):
     return matcher.get_depth(scrip.upper(), levels)
@@ -274,9 +283,9 @@ def get_vwap(scrip: str):
 @app.get("/market-watch")
 def market_watch():
     """LTP for all active scrips."""
-    from simulation.price_feed import SEED_PRICES
+    from core.scrip_metadata import SCRIP_METADATA
     result = []
-    for scrip in ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]:
+    for scrip in SCRIP_METADATA.keys():
         depth = matcher.get_depth(scrip)
         ltp   = depth.get("ltp")
         seed  = depth.get("prev_close", 0)
@@ -386,7 +395,8 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     clients.append(websocket)
     # Send current depth for all scrips on connect
-    for scrip in ["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK"]:
+    from core.scrip_metadata import SCRIP_METADATA
+    for scrip in SCRIP_METADATA.keys():
         depth = matcher.get_depth(scrip)
         try:
             await websocket.send_text(json.dumps({**depth, "event": "depth"}, default=str))

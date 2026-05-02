@@ -36,6 +36,20 @@ class Order:
     visible_qty: int        = 0         # 0 means same as quantity
     status:     OrderStatus = OrderStatus.PENDING
 
+    def __post_init__(self):
+        from core.scrip_metadata import SCRIP_METADATA
+        meta = SCRIP_METADATA.get(self.scrip)
+        if meta:
+            if self.quantity <= 0 or self.quantity % meta["lot_size"] != 0:
+                raise ValueError(f"Quantity must be a positive multiple of lot size ({meta['lot_size']}) for {self.scrip}")
+            if self.order_type == OrderType.LIMIT:
+                if self.price <= 0:
+                    raise ValueError("LIMIT orders must have a positive price")
+                # Avoid float precision issues
+                ticks = round(self.price / meta["tick_size"], 5)
+                if not ticks.is_integer():
+                    raise ValueError(f"Price must be a multiple of tick size ({meta['tick_size']}) for {self.scrip}")
+
     @property
     def pending_qty(self) -> int:
         return self.quantity - self.filled_qty

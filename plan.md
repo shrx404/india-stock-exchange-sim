@@ -88,25 +88,6 @@
 2. Unified Information Hierarchy: Clear visual distinction from Market View (generic) to Specific View (selected stock).
 3. Maximum Screen Utilization: A fixed footer uses the dead space below the portfolio. Expanding chart/tools to use the full width.
 
-**Visual Layout Proposal:**
-
-```text
-+-------------------------------------------------+
-|               A. Header / Market Watch          |
-+-------------------------------------------------+
-|                       | B. Market Depth (TOP5)  |
-|                       | (Docked Right)          |
-|    D. Main Chart      +-------------------------+
-| (Selected Stock View) | C. Order Form           |
-|                       | (Docked Right)          |
-|                       | (Logic: View depth, then|
-|                       | place order)            |
-+-----------------------+-------------------------+
-| E. Portfolio/Holdings | F. Trade Log            |
-| (Docked Bottom-Left)  | (Docked Bottom-Right)   |
-+-------------------------------------------------+
-```
-
 **Actionable Tasks:**
 
 **3.1 Grid System & Component Re-Architecture**
@@ -128,15 +109,15 @@
 
 **4.1 Real NSE Historical Prices**
 
-- [ ] Write a standalone script to download and parse NSE Bhavcopy CSVs.
-- [ ] Create a seeding utility to populate the price_history database table with this reference data.
-- [ ] Update the engine's initialization sequence to load these base prices to set the starting point for agents.
+- [x] Write a standalone script to download and parse NSE Bhavcopy CSVs.
+- [x] Create a seeding utility to populate the price_history database table with this reference data.
+- [x] Update the engine's initialization sequence to load these base prices to set the starting point for agents.
 
 **4.2 Expand to NIFTY 50**
 
-- [ ] Create a scrip_metadata JSON or config file defining all 50 scrips, their sector, correct lot sizes, and tick sizes.
-- [ ] Update the Order model and OrderForm validation to strictly enforce lot size and tick size increments.
-- [ ] Scale up the simulation agents to monitor and trade across all 50 order books.
+- [x] Create a scrip_metadata JSON or config file defining all 50 scrips, their sector, correct lot sizes, and tick sizes.
+- [x] Update the Order model and OrderForm validation to strictly enforce lot size and tick size increments.
+- [x] Scale up the simulation agents to monitor and trade across all 50 order books.
 
 **4.3 Corporate Action Handling**
 
@@ -145,33 +126,76 @@
 
 ---
 
-### Phase 5 — Frontend Polish (Lowest Priority)
+### Phase 5 — Performance & Optimization
 
-**5.1 Chart Indicators**
+**Context:** The app is experiencing lag under real load — 50 scrips × high-frequency agent trades × live WebSocket hydration is a non-trivial data pipeline. The bottlenecks are likely in three places: WebSocket message volume, frontend re-render frequency, and DB write pressure.
+
+---
+
+**5.1 WebSocket Throttling & Message Batching**
+
+The single biggest frontend killer. Every trade currently triggers an immediate broadcast, meaning the React tree re-renders at the same rate as the matching engine fires.
+
+- [ ] Implement a server-side **broadcast buffer** — collect all events within a 100ms window and send them as a single batched array instead of individual messages.
+- [ ] Separate WebSocket topics by scrip (`depth.RELIANCE`, `candles.TCS`) so the frontend only subscribes to the active scrip's high-frequency feed, not all 50.
+- [ ] Add a **heartbeat/diff-only** mode for the market watch panel — only broadcast a scrip's LTP update if it has actually changed since the last tick.
+
+**5.2 Frontend Re-render Optimization**
+
+- [ ] Wrap all major components (`OrderBook`, `CandleChart`, `Portfolio`, `MarketWatch`) in `React.memo` to prevent re-renders when their props haven't changed.
+- [ ] Move WebSocket message processing off the main thread using a `useReducer` + `useMemo` pattern instead of raw `useState` chains to batch React state updates.
+- [ ] Virtualize the Trade Log using `react-window` or `react-virtual` — rendering 40 DOM nodes on every trade event is expensive; only render what's visible.
+- [ ] Throttle the `MarketWatch` panel updates to max 2 updates/second per scrip using a `useThrottle` hook, as sub-100ms LTP flicker has no user value.
+
+**5.3 Database Write Pressure Relief**
+
+The DB is being hit synchronously on every trade. Under 50-scrip load this causes write queuing.
+
+- [ ] Implement a **write buffer** in the engine — accumulate trades and orders in memory and flush to PostgreSQL in bulk every 500ms using a background `asyncio` task instead of per-trade inserts.
+- [ ] Add a `pg_partman`-style **time-based partition** on the `price_history` table by month, so candle queries don't full-scan the entire history table as it grows.
+- [ ] Add a **composite index** on `(scrip, timestamp DESC)` for the `price_history` and `market_depth_snapshots` tables — the two most-queried tables on startup.
+
+**5.4 Engine-Side Agent Scheduling**
+
+50 agents each running their own `asyncio.sleep()` loop creates event loop contention.
+
+- [ ] Replace individual per-agent sleep loops with a **centralized tick scheduler** — one master loop fires at a configurable interval (e.g. 200ms) and dispatches all agent decisions in that tick, preventing thundering herd on the event loop.
+- [ ] Add a **per-scrip activity gate** — agents only evaluate a scrip if it has had at least one trade in the last N seconds, skipping idle books entirely.
+
+**5.5 Frontend Cold-Start Speed**
+
+- [ ] Lazy-load the `CandleChart` component (TradingView LWC is a heavy import) using `React.lazy` + `Suspense` so the terminal shell renders immediately while the chart loads.
+- [ ] Add a REST endpoint `/api/snapshot/init` that returns the entire initial state (LTP for all scrips, top-5 depth for active scrip, last 100 candles) in a **single HTTP request** on page load, instead of waiting for WebSocket hydration to build up state from scratch.
+
+---
+
+### Phase 6 — Frontend Polish (Lowest Priority)
+
+**6.1 Chart Indicators**
 
 - [x] Configure TradingView Lightweight Charts to add a secondary line series for VWAP.
 - [x] Add a histogram series at the bottom of the chart pane for Volume bars.
 - [x] Calculate and display EMA 9 and EMA 21 overlays on the frontend.
 
-**5.2 Order History Table**
+**6.2 Order History Table**
 
 - [ ] Create a REST endpoint /api/users/orders to fetch historical orders with pagination.
 - [ ] Build the React table component with sorting and status badges (Filled, Partial, Canceled).
 - [ ] Calculate and display per-trade P&L based on average fill price vs current LTP.
 
-**5.3 Market Depth Replay**
+**6.3 Market Depth Replay**
 
 - [ ] Build a timeline scrubber/slider UI component.
 - [ ] Create a REST endpoint /api/depth/snapshot?timestamp=X to fetch specific historical states.
 - [ ] Wire the UI to disconnect the live WebSocket and render the fetched historical depth data when scrubbing.
 
-**5.4 Simulation Speed Control**
+**6.4 Simulation Speed Control**
 
 - [ ] Implement a global SIM_SPEED_MULTIPLIER in the engine.
 - [ ] Link the multiplier to agent sleep() or delay() functions (e.g., 10x speed divides delays by 10).
 - [ ] Add a 1x/5x/10x toggle UI on the frontend that triggers an admin REST endpoint to adjust the multiplier.
 
-**5.5 Session Summary**
+**6.5 Session Summary**
 
 - [ ] Write an aggregation query/endpoint to calculate EOD stats (total volume, biggest gainer/loser).
 - [ ] Build an End-of-Day modal summary screen that displays global market stats and the user's realized/unrealized P&L.

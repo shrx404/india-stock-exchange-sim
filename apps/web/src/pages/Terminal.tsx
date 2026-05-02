@@ -274,8 +274,16 @@ export const Terminal = () => {
   const [activeScrip, setActiveScrip] = useState("RELIANCE");
   const [fills, setFills] = useState<FillEntry[]>([]);
   const [logOpen, setLogOpen] = useState(true);
+  const [scripMetadata, setScripMetadata] = useState<Record<string, { sector: string, lot_size: number, tick_size: number }>>({});
 
   const { snapshots, tradeEvents, candleEvents, connected } = useWebSocket();
+
+  useEffect(() => {
+    fetch('http://localhost:8000/scrips')
+      .then(res => res.json())
+      .then(data => setScripMetadata(data))
+      .catch(err => console.error("Failed to load scrip metadata", err));
+  }, []);
 
   const log: WsTradeEvent[] = tradeEvents.slice(0, 40);
   const positions = buildPositions(fills, snapshots);
@@ -451,6 +459,8 @@ export const Terminal = () => {
           <OrderForm
             scrip={activeScrip}
             sessionState={activeSnapshot?.session_state || "OPEN"}
+            lotSize={scripMetadata[activeScrip]?.lot_size || 1}
+            tickSize={scripMetadata[activeScrip]?.tick_size || 0.05}
             onTraded={(res, side) => handleTraded(res, activeScrip, side)}
           />
         </div>

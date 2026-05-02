@@ -5,10 +5,12 @@ import styles from './OrderForm.module.css';
 interface Props {
   scrip: string;
   sessionState?: string;
+  lotSize?: number;
+  tickSize?: number;
   onTraded: (res: PlaceOrderResponse, side: Side) => void;
 }
 
-export function OrderForm({ scrip, sessionState = 'OPEN', onTraded }: Props) {
+export function OrderForm({ scrip, sessionState = 'OPEN', lotSize = 1, tickSize = 0.05, onTraded }: Props) {
   const [side, setSide]           = useState<Side>('BUY');
   const [orderType, setOrderType] = useState<OrderType>('LIMIT');
   const [quantity, setQuantity]   = useState('');
@@ -80,7 +82,9 @@ export function OrderForm({ scrip, sessionState = 'OPEN', onTraded }: Props) {
           type="number"
           value={quantity}
           onChange={e => setQuantity(e.target.value)}
-          placeholder="e.g. 10"
+          placeholder={`e.g. ${lotSize * 10}`}
+          min={lotSize}
+          step={lotSize}
         />
       </div>
 
@@ -92,7 +96,8 @@ export function OrderForm({ scrip, sessionState = 'OPEN', onTraded }: Props) {
             value={price}
             onChange={e => setPrice(e.target.value)}
             placeholder="e.g. 2955.00"
-            step="0.05"
+            step={tickSize}
+            min={tickSize}
           />
         </div>
       )}

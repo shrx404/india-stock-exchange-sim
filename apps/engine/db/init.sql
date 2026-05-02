@@ -72,18 +72,58 @@ CREATE TABLE IF NOT EXISTS market_depth_snapshots (
     asks        JSONB NOT NULL
 );
 
--- Seed: NIFTY 50 top 10 scrips for MVP
+-- Seed: NIFTY 50 scrips
 INSERT INTO scrips (symbol, name) VALUES
     ('RELIANCE',  'Reliance Industries Ltd'),
     ('TCS',       'Tata Consultancy Services'),
     ('HDFCBANK',  'HDFC Bank Ltd'),
     ('INFY',      'Infosys Ltd'),
     ('ICICIBANK', 'ICICI Bank Ltd'),
-    ('HINDUNILVR','Hindustan Unilever Ltd'),
+    ('HINDUNILVR','H हिंदुस्तान Unilever Ltd'),
     ('SBIN',      'State Bank of India'),
     ('BHARTIARTL','Bharti Airtel Ltd'),
     ('KOTAKBANK', 'Kotak Mahindra Bank Ltd'),
-    ('ITC',       'ITC Ltd')
+    ('ITC',       'ITC Ltd'),
+    ('LT', 'Larsen & Toubro'),
+    ('BAJFINANCE', 'Bajaj Finance'),
+    ('AXISBANK', 'Axis Bank'),
+    ('ASIANPAINT', 'Asian Paints'),
+    ('MARUTI', 'Maruti Suzuki'),
+    ('SUNPHARMA', 'Sun Pharma'),
+    ('TITAN', 'Titan Company'),
+    ('ULTRACEMCO', 'UltraTech Cement'),
+    ('TATASTEEL', 'Tata Steel'),
+    ('HCLTECH', 'HCL Technologies'),
+    ('ADANIENT', 'Adani Enterprises'),
+    ('NTPC', 'NTPC Ltd'),
+    ('POWERGRID', 'Power Grid Corp'),
+    ('M&M', 'Mahindra & Mahindra'),
+    ('TATAMOTORS', 'Tata Motors'),
+    ('BAJAJFINSV', 'Bajaj Finserv'),
+    ('WIPRO', 'Wipro Ltd'),
+    ('NESTLEIND', 'Nestle India'),
+    ('ONGC', 'ONGC'),
+    ('GRASIM', 'Grasim Industries'),
+    ('JSWSTEEL', 'JSW Steel'),
+    ('TECHM', 'Tech Mahindra'),
+    ('HINDALCO', 'Hindalco Industries'),
+    ('COALINDIA', 'Coal India'),
+    ('INDUSINDBK', 'IndusInd Bank'),
+    ('DRREDDY', 'Dr. Reddys Laboratories'),
+    ('CIPLA', 'Cipla Ltd'),
+    ('EICHERMOT', 'Eicher Motors'),
+    ('SBILIFE', 'SBI Life Insurance'),
+    ('DIVISLAB', 'Divis Laboratories'),
+    ('TATACONSUM', 'Tata Consumer Products'),
+    ('BAJAJ-AUTO', 'Bajaj Auto'),
+    ('APOLLOHOSP', 'Apollo Hospitals'),
+    ('UPL', 'UPL Ltd'),
+    ('BRITANNIA', 'Britannia Industries'),
+    ('HEROMOTOCO', 'Hero MotoCorp'),
+    ('BPCL', 'BPCL'),
+    ('ADANIPORTS', 'Adani Ports'),
+    ('HDFCLIFE', 'HDFC Life Insurance'),
+    ('LTIM', 'LTIMindtree')
 ON CONFLICT (symbol) DO NOTHING;
 
 -- Seed: one human trader + two bots
