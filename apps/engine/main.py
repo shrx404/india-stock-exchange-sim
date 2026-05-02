@@ -456,9 +456,7 @@ def get_vwap(scrip: str):
     return {"scrip": scrip.upper(), "vwap": analytics.get_vwap(scrip.upper())}
 
 
-@app.get("/market-watch")
-def market_watch():
-    """LTP for all active scrips (REST — used for initial hydration only)."""
+def _get_market_watch():
     from core.scrip_metadata import SCRIP_METADATA
     result = []
     for scrip in SCRIP_METADATA.keys():
@@ -478,6 +476,28 @@ def market_watch():
             "session_state": depth.get("session_state", "OPEN"),
         })
     return result
+
+
+@app.get("/market-watch")
+def market_watch():
+    """LTP for all active scrips (REST — used for initial hydration only)."""
+    return _get_market_watch()
+
+
+@app.get("/api/snapshot/init")
+def get_init_snapshot(scrip: str):
+    """
+    Returns the entire initial state for the terminal in a single request:
+    - Market Watch (all scrips)
+    - Order Book Depth (active scrip)
+    - Last 100 Candles (active scrip)
+    """
+    scrip_up = scrip.upper()
+    return {
+        "marketWatch": _get_market_watch(),
+        "depth":       matcher.get_depth(scrip_up, levels=8),
+        "candles":     candle_aggregator.get_candles(scrip_up)[-100:]
+    }
 
 
 @app.post("/admin/session/{scrip}")

@@ -155,17 +155,10 @@ The DB is being hit synchronously on every trade. Under 50-scrip load this cause
 - [x] Add a `pg_partman`-style **time-based partition** on the `price_history` table by month, so candle queries don't full-scan the entire history table as it grows.
 - [x] Add a **composite index** on `(scrip, timestamp DESC)` for the `price_history` and `market_depth_snapshots` tables — the two most-queried tables on startup.
 
-**5.4 Engine-Side Agent Scheduling**
+**5.4 Frontend Cold-Start Speed**
 
-50 agents each running their own `asyncio.sleep()` loop creates event loop contention.
-
-- [ ] Replace individual per-agent sleep loops with a **centralized tick scheduler** — one master loop fires at a configurable interval (e.g. 200ms) and dispatches all agent decisions in that tick, preventing thundering herd on the event loop.
-- [ ] Add a **per-scrip activity gate** — agents only evaluate a scrip if it has had at least one trade in the last N seconds, skipping idle books entirely.
-
-**5.5 Frontend Cold-Start Speed**
-
-- [ ] Lazy-load the `CandleChart` component (TradingView LWC is a heavy import) using `React.lazy` + `Suspense` so the terminal shell renders immediately while the chart loads.
-- [ ] Add a REST endpoint `/api/snapshot/init` that returns the entire initial state (LTP for all scrips, top-5 depth for active scrip, last 100 candles) in a **single HTTP request** on page load, instead of waiting for WebSocket hydration to build up state from scratch.
+- [x] Lazy-load the `CandleChart` component (TradingView LWC is a heavy import) using `React.lazy` + `Suspense` so the terminal shell renders immediately while the chart loads.
+- [x] Add a REST endpoint `/api/snapshot/init` that returns the entire initial state (LTP for all scrips, top-5 depth for active scrip, last 100 candles) in a **single HTTP request** on page load, instead of waiting for WebSocket hydration to build up state from scratch.
 
 ---
 

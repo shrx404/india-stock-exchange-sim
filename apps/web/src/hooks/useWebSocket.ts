@@ -27,6 +27,7 @@ interface WsState {
 type WsAction =
   | { type: 'CONNECTED' }
   | { type: 'DISCONNECTED' }
+  | { type: 'SEED'; trades: WsTradeEvent[]; candles: WsCandleEvent[]; depth: Record<string, OrderBookSnapshot>; ltp: Record<string, MarketWatchItem> }
   | { type: 'BATCH'; trades: WsTradeEvent[]; candles: WsCandleEvent[]; depth: Record<string, OrderBookSnapshot>; ltp: Record<string, MarketWatchItem> };
 
 const initialState: WsState = {
@@ -44,6 +45,15 @@ const wsReducer = (state: WsState, action: WsAction): WsState => {
 
     case 'DISCONNECTED':
       return { ...state, connected: false };
+
+    case 'SEED':
+      return {
+        ...state,
+        tradeEvents:  action.trades.slice(0, 100),
+        candleEvents: action.candles.slice(0, 100),
+        snapshots:    action.depth,
+        marketWatch:  action.ltp,
+      };
 
     case 'BATCH': {
       const { trades, candles, depth, ltp } = action;
@@ -76,6 +86,11 @@ export interface UseWebSocketReturn {
    * depth/candle updates for that scrip are routed to this client.
    */
   subscribeScrip: (scrip: string) => void;
+  /**
+   * Seed the state with initial data from a REST snapshot.
+   * Prevents "empty terminal" flash during WS cold start.
+   */
+  seed: (data: { marketWatch: MarketWatchItem[]; depth: OrderBookSnapshot; candles: any[] }) => void;
 }
 
 export const useWebSocket = (): UseWebSocketReturn => {
@@ -125,6 +140,21 @@ export const useWebSocket = (): UseWebSocketReturn => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ action: 'subscribe', scrip }));
+  }, []);
+
+  const seed = useCallback((data: any) => {
+    const ltp: Record<string, MarketWatchItem> = {};
+    data.marketWatch.forEach((item: MarketWatchItem) => {
+      ltp[item.scrip] = item;
+    });
+
+    dispatch({
+      type: 'SEED',
+      trades: [], // init snapshot doesn't include historical trades yet
+      candles: data.candles.map((c: any) => ({ event: 'candle', scrip: c.scrip, candle: c })),
+      depth: { [data.depth.scrip]: data.depth },
+      ltp,
+    });
   }, []);
 
   // --------------------------------------------------------------- connect / reconnect
@@ -181,5 +211,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
     marketWatch:  state.marketWatch,
     connected:    state.connected,
     subscribeScrip,
+    seed,
   };
 };

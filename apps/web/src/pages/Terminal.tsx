@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect, useMemo, useRef, memo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, memo, lazy, Suspense } from "react";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
 import { OrderBook } from "../components/OrderBook/OrderBook";
 import { OrderForm } from "../components/OrderForm/OrderForm";
-import { CandleChart } from "../components/Chart/CandleChart";
+// import { CandleChart } from "../components/Chart/CandleChart";
 import { MarketWatch } from "../components/MarketWatch/MarketWatch";
 import { Portfolio } from "../components/Portfolio/Portfolio";
+
+const CandleChart = lazy(() => import("../components/Chart/CandleChart").then(m => ({ default: m.CandleChart })));
 import { useWebSocket } from "../hooks/useWebSocket";
 import { useThrottle } from "../hooks/useThrottle";
 import type {
@@ -324,7 +326,7 @@ export const Terminal = () => {
     Record<string, { sector: string; lot_size: number; tick_size: number }>
   >({});
 
-  const { snapshots, tradeEvents, candleEvents, marketWatch, connected, subscribeScrip } =
+  const { snapshots, tradeEvents, candleEvents, marketWatch, connected, subscribeScrip, seed } =
     useWebSocket();
 
   // Throttle the market-watch map to 2 fps before passing to MarketWatch.
@@ -337,11 +339,19 @@ export const Terminal = () => {
   }, [activeScrip, subscribeScrip]);
 
   useEffect(() => {
+    // 1. Load scrip metadata
     fetch("http://localhost:8000/scrips")
       .then((res) => res.json())
       .then((data) => setScripMetadata(data))
       .catch((err) => console.error("Failed to load scrip metadata", err));
-  }, []);
+
+    // 2. Load initial snapshot for the starting scrip
+    // This seeds the market watch, depth, and last 100 candles in one request
+    fetch(`http://localhost:8000/api/snapshot/init?scrip=${activeScrip}`)
+      .then((res) => res.json())
+      .then((data) => seed(data))
+      .catch((err) => console.error("Failed to load init snapshot", err));
+  }, [seed]); // Only on mount (activeScrip is static RELIANCE for now, or seeds once)
 
   // Cap trade log at 100 entries (already capped in the hook, but slice for display)
   const log: WsTradeEvent[] = tradeEvents.slice(0, 100);
@@ -467,11 +477,17 @@ export const Terminal = () => {
               borderRight: "1px solid #1a1a1a",
             }}
           >
-            <CandleChart
-              scrip={activeScrip}
-              candleEvents={candleEvents}
-              position={positions.find((p) => p.scrip === activeScrip)}
-            />
+            <Suspense fallback={
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080808', color: '#333', fontSize: 11 }}>
+                LOADING CHART...
+              </div>
+            }>
+              <CandleChart
+                scrip={activeScrip}
+                candleEvents={candleEvents}
+                position={positions.find((p) => p.scrip === activeScrip)}
+              />
+            </Suspense>
           </div>
         </div>
 
